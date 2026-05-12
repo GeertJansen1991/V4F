@@ -1,0 +1,5 @@
+fastapi
+weasyprint
+jinja2
+base64
+unicorn
