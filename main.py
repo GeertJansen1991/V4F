@@ -6,6 +6,9 @@ import base64
 from fastapi import FastAPI
 
 app = FastAPI()
+@app.get("/")
+async def root():
+    return {"message": "V4F Backend is online!"}
 
 # This is crucial: it allows your frontend (running on a different port/file) to talk to this backend
 app.add_middleware(
