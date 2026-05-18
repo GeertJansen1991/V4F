@@ -160,7 +160,7 @@
                     </div>
                     <p class="text-slate-500 font-medium">What are you interested in auditing for your farm?</p>
                     <div class="flex flex-col gap-4">
-                        <button v-for="focus in ['Agrivoltaics', 'Biogas', 'Both']" 
+                        <button type="button" v-for="focus in ['Agrivoltaics', 'Biogas', 'Both']" :key="focus"
                                 @click="formData.auditFocus = focus"
                                 :class="formData.auditFocus === focus ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
                                 class="p-6 border-2 rounded-xl text-left font-bold transition-all shadow-sm text-lg">
@@ -168,7 +168,6 @@
                         </button>
                     </div>
                 </div>
-
                 <!-- Section 1: General farm profile -->
                 <div v-if="currentSection === 'farm'" class="space-y-8 animate-fade-in">
                     <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Your farm</h2>
