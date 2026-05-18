@@ -457,42 +457,82 @@
                             </div>
                         </div>
 
-                        <div v-if="formData.biogas.selectedLivestock.length > 0" class="overflow-x-auto mt-6">
-                            <table class="w-full text-xs text-left border-collapse">
-                                <thead>
-                                    <tr class="bg-slate-50 text-v4f-neutral">
-                                        <th class="p-2 border">Type</th>
-                                        <th class="p-2 border">No. Animals</th>
-                                        <th class="p-2 border">Inside (12m)</th>
-                                        <th class="p-2 border">Outside (0m)</th>
-                                        <th class="p-2 border">Partial</th>
-                                        <th class="p-2 border">Collection System</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="type in formData.biogas.selectedLivestock" :key="type">
-                                        <td class="p-2 border font-bold">{{ type }}</td>
-                                        <td class="p-2 border">
-                                            <input type="number" v-model="formData.biogas.herdDetails[type].count" class="w-16 p-1 border rounded">
-                                        </td>
-                                        <td class="p-2 border text-center"><input type="radio" :name="'h-'+type" value="12" v-model="formData.biogas.herdDetails[type].monthsInside"></td>
-                                        <td class="p-2 border text-center"><input type="radio" :name="'h-'+type" value="0" v-model="formData.biogas.herdDetails[type].monthsInside"></td>
-                                        <td class="p-2 border">
-                                            <div class="flex items-center gap-1">
-                                                <input type="radio" :name="'h-'+type" value="partial" v-model="formData.biogas.herdDetails[type].housingMode">
-                                                <select v-if="formData.biogas.herdDetails[type].housingMode === 'partial'" v-model="formData.biogas.herdDetails[type].monthsInside" class="p-1 border rounded">
-                                                    <option v-for="m in 11" :value="m">{{ m }} m</option>
-                                                </select>
-                                            </div>
-                                        </td>
-                                        <td class="p-2 border">
-                                            <select v-model="formData.biogas.manureSystems[type]" class="w-full p-1 border rounded">
+                        <div v-if="formData.biogas.selectedLivestock.length > 0" class="space-y-4 mt-6">
+                            <label class="block font-bold text-v4f-neutral text-sm mb-2">
+                                Herd Housing & Management
+                            </label>
+                            
+                            <div v-for="type in formData.biogas.selectedLivestock" :key="type" 
+                                 class="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                                
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                                    <span class="font-black text-v4f-neutral text-base flex items-center gap-2">
+                                        <span class="text-v4f-base">●</span> {{ type }}
+                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <label class="text-xs font-bold text-slate-600 uppercase">Number of Animals:</label>
+                                        <input type="number" v-model="formData.biogas.herdDetails[type].count" min="0" placeholder="0"
+                                               class="w-24 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold text-v4f-neutral outline-v4f-base">
+                                    </div>
+                                </div>
+                        
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                                    
+                                    <div>
+                                        <label class="block text-xs font-black uppercase text-slate-500 mb-2">
+                                            When are the animals housed indoors?
+                                        </label>
+                                        
+                                        <div class="flex flex-col gap-2">
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="year-round" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">🏠 Year-Round Indoors (Stable/Confinement)</span>
+                                            </label>
+                        
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="winter" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">❄ Winter Only (Stables in cold months, Pasture in summer)</span>
+                                            </label>
+                        
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="winter-autumn" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">🍂 Winter & Autumn (Extended indoor period)</span>
+                                            </label>
+                        
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="pasture" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">🌳 Year-Round Outdoors (Continuous Pasture)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                        
+                                    <div class="flex flex-col justify-between">
+                                        <div>
+                                            <label class="block text-xs font-black uppercase text-slate-500 mb-2">Manure Collection System</label>
+                                            <select v-model="formData.biogas.manureSystems[type]" 
+                                                    :disabled="formData.biogas.herdDetails[type].housingMode === 'pasture'"
+                                                    :class="formData.biogas.herdDetails[type].housingMode === 'pasture' ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white'"
+                                                    class="w-full p-3 border border-slate-300 rounded-lg text-sm font-medium outline-v4f-base text-slate-700 transition-colors">
                                                 <option v-for="m in manureCollectionOptions" :value="m">{{ m }}</option>
                                             </select>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                        </div>
+                        
+                                        <div v-if="formData.biogas.herdDetails[type].housingMode === 'pasture'" 
+                                             class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 italic mt-4">
+                                            ⚠ Note: If animals are outdoors year-round, collectable manure volumes drop to near zero, significantly impacting baseline biogas potential.
+                                        </div>
+                                    </div>
+                                </div>
+                        
+                            </div>
                         </div>
                     </section>
 
