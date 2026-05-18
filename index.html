@@ -555,20 +555,69 @@
                     <!-- Section 3: Energy & Infrastructure -->
                     <section class="space-y-6 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Energy & Infrastructure</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-bold text-slate-600">Annual Heat Consumption (kWh/yr):</label>
-                                <input type="number" v-model="formData.biogas.energy.heat" class="w-full p-3 bg-v4f-bg border rounded-xl">
+                        
+                        <div class="space-y-3">
+                            <label class="block font-bold text-v4f-neutral text-sm">
+                                What is your intended pathway for utilizing the generated biogas?
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                
+                                <button type="button" @click="formData.biogas.energy.pathway = 'CHP'"
+                                        :class="formData.biogas.energy.pathway === 'CHP' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <span class="block font-black text-sm mb-1">⚡ Combined Heat & Power (CHP)</span>
+                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Burn gas on-site in a co-generation engine to produce electricity and usable heat.</span>
+                                    </div>
+                                </button>
+                    
+                                <button type="button" @click="formData.biogas.energy.pathway = 'Biomethane'"
+                                        :class="formData.biogas.energy.pathway === 'Biomethane' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <span class="block font-black text-sm mb-1">🔥 Biomethane Upgrading</span>
+                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Purify biogas to grid-quality gas for injection into the gas network or use as transport fuel.</span>
+                                    </div>
+                                </button>
+                    
+                                <button type="button" @click="formData.biogas.energy.pathway = 'Evaluate Both'"
+                                        :class="formData.biogas.energy.pathway === 'Evaluate Both' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <span class="block font-black text-sm mb-1">📊 Evaluate Both Pathways</span>
+                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Let the audit tool calculate and compare the feasibility metrics for both scenarios.</span>
+                                    </div>
+                                </button>
+                    
                             </div>
+                        </div>
+                    
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                             <div>
-                                <label class="block text-sm font-bold text-slate-600">Gas grid connection nearby?</label>
-                                <select v-model="formData.biogas.infrastructure.gasGrid" class="w-full p-3 bg-v4f-bg border rounded-xl">
-                                    <option v-for="o in ['Yes', 'No', 'Unknown']">{{ o }}</option>
+                                <label class="block text-sm font-bold text-slate-600 mb-2">Annual Heat Consumption (kWh/yr):</label>
+                                <input type="number" v-model="formData.biogas.energy.heat" placeholder="e.g., 45000"
+                                       class="w-full p-3 bg-v4f-bg border rounded-xl outline-v4f-base font-medium">
+                                <p v-if="formData.biogas.energy.pathway === 'CHP'" class="text-[11px] text-v4f-neutral mt-1 italic">
+                                    💡 High local heat use improves the efficiency and economic feasibility of a CHP unit.
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 mb-2">Gas grid connection nearby?</label>
+                                <select v-model="formData.biogas.infrastructure.gasGrid" 
+                                        class="w-full p-3 bg-v4f-bg border rounded-xl outline-v4f-base font-medium text-slate-700">
+                                    <option disabled value="">Select status...</option>
+                                    <option value="Yes">Yes, there is a gas pipeline nearby</option>
+                                    <option value="No">No close pipeline connection</option>
+                                    <option value="Unknown">Unknown</option>
                                 </select>
+                                <p v-if="formData.biogas.energy.pathway === 'Biomethane' && formData.biogas.infrastructure.gasGrid === 'No'" 
+                                   class="text-[11px] text-amber-600 mt-1 italic font-medium">
+                                    ⚠ Note: Upgrading to biomethane without grid access requires alternative compression/trucking logistics, which sharply changes project economics.
+                                </p>
                             </div>
                         </div>
                     </section>
-                </div>
 
                 <div class="mt-12 flex justify-between items-center border-t border-slate-100 pt-8">
                     <button @click="prevStep" v-if="currentStep > 1" 
@@ -709,7 +758,7 @@
                         rotation: '',
                         coverCrops: { grow: false, area: null },
                         residueManagement: [],
-                        energy: { heat: null, fertilizer: null },
+                        energy: { heat: null, fertilizer: null, pathway: '' },
                         infrastructure: { gasGrid: '', collaboration: 3 }
                     }
                 });
@@ -894,13 +943,15 @@
                         
                         // Check if Bovine is selected but no subtype is picked
                         const bovineNeedsSubtype = bio.selectedLivestock.includes('Bovine') && 
-                                                bio.herdDetails['Bovine'].subtype.length === 0;
+                                                (!bio.herdDetails['Bovine'].subtype || bio.herdDetails['Bovine'].subtype.length === 0);
                                                 
-                        const hasHeat = bio.energy.heat !== null;
+                        const hasHeat = bio.energy.heat !== null && bio.energy.heat !== '';
                         const hasInfrastructure = !!bio.infrastructure.gasGrid;
                         
-                        // Step is valid if basic info is there AND bovine has subtypes (if applicable)
-                        return hasHeat && hasInfrastructure && !bovineNeedsSubtype;
+                        // NEW: Ensure a utilization pathway is selected
+                        const hasPathway = !!bio.energy.pathway;
+                        
+                        return hasHeat && hasInfrastructure && hasPathway && !bovineNeedsSubtype;
                     }
                     
                     return true; 
