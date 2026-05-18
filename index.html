@@ -617,14 +617,14 @@
                             </div>
                         </div>
                     </section>
-
-                <div class="mt-12 flex justify-between items-center border-t border-slate-100 pt-8">
-                    <button @click="prevStep" v-if="currentStep > 1" 
+                
+                </div> <div class="mt-12 flex justify-between items-center border-t border-slate-100 pt-8">
+                    <button type="button" @click="prevStep" v-if="currentStep > 1" 
                             class="text-v4f-neutral hover:text-v4f-base font-bold transition-colors flex items-center gap-2">
                         &larr; Back
                     </button>
                     <div v-else></div>
-                    <button @click="nextStep"
+                    <button type="button" @click="nextStep"
                             :disabled="!isCurrentStepValid"
                             :class="!isCurrentStepValid ? 'opacity-50 cursor-not-allowed bg-slate-300 text-slate-500' : 'bg-v4f-accent hover:opacity-90 text-white shadow-lg'"
                             class="px-12 py-4 rounded-xl font-bold transition-all text-lg">
@@ -632,8 +632,7 @@
                     </button>
                 </div>
 
-            </div> <div v-else-if="currentView === 'loading'" class="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
-                <div class="w-20 h-20 border-4 border-slate-200 border-t-v4f-base rounded-full animate-spin mb-8"></div>
+            </div> <div v-else-if="currentView === 'loading'" class="flex flex-col items-center justify-center py-20 animate-fade-in text-center">                <div class="w-20 h-20 border-4 border-slate-200 border-t-v4f-base rounded-full animate-spin mb-8"></div>
                 <h2 class="text-4xl font-bold text-v4f-neutral mb-3">Calculating...</h2>
                 <p class="text-slate-500 font-medium text-lg">Please wait while we evaluate your farm's potential.</p>
             </div>
