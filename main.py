@@ -10,6 +10,7 @@ app = FastAPI()
 async def root():
     return {"message": "V4F Backend is online!"}
 
+# Crucial for frontend-backend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -20,7 +21,20 @@ app.add_middleware(
 
 @app.post("/generate-report")
 async def generate_report(data: dict):
-# ==========================================
+    # ==========================================
+    # 1. EXTRACT DATA FROM FRONTEND
+    # ==========================================
+    focus = data.get("auditFocus", "Not specified")
+    location = data.get("location", "Not specified")
+    size = float(data.get("totalSize") or 0)
+    unit = data.get("unit", "Hectares")
+    
+    # Extract dynamic sub-objects from frontend JSON payload
+    agri = data.get("agrivoltaics", {})
+    biogas = data.get("biogas", {})
+    activities = data.get("activities", [])
+
+    # ==========================================
     # 2. UNIFIED APV & BIOGAS LOOKUP ENGINE
     # ==========================================
     # Balanced baselines adjusted for dual-system flexibility
@@ -34,11 +48,6 @@ async def generate_report(data: dict):
     swot_opportunities = []
     swot_threats = []
     recommendations = []
-
-    # Extract dynamic sub-objects from frontend JSON payload
-    agri = data.get("agrivoltaics", {})
-    biogas = data.get("biogas", {})
-    activities = data.get("activities", [])
 
     # --- Land Ownership Structure (Universal Farm Internal Factor) ---
     ownership = data.get("ownership")
@@ -81,7 +90,7 @@ async def generate_report(data: dict):
                 swot_weaknesses.append("Crop Light Deficit: Maize/Root crops have high light-saturation points and risk structural microclimate yield reduction.")
                 recommendations.append("Utilize dynamic tracking algorithms that prioritize agricultural solar sharing during peak crop-growth phases.")
 
-        # Irrigation & Water Secondary Logic (Dynamic Weakness/Threat Additions)
+        # Irrigation & Water Secondary Logic
         if irrigation in ["Sprinkler", "Center Pivot"]:
             base_technical -= 10
             swot_weaknesses.append(f"Irrigation Collision Risk: Active {irrigation} frameworks require careful spatial coordination to prevent wetting module junctions.")
@@ -172,8 +181,7 @@ async def generate_report(data: dict):
             swot_weaknesses.append("Feedstock Limitation: Low on-site animal count limits continuous daily anaerobic organic loading capability.")
 
         if has_pasture_risk:
-            base_technical -= 20
-            swot_threats.append("Manure Collection Deficit: Continuous open pasture modes drastically reduce total collectable slurry metrics.")
+            base_threats.append("Manure Collection Deficit: Continuous open pasture modes drastically reduce total collectable slurry metrics.")
             recommendations.append("Optimize high-traffic transitional bedding capture mechanics during colder indoor-stabling months.")
 
         # Pathway vs Infrastructure Logic
@@ -198,7 +206,6 @@ async def generate_report(data: dict):
     # ----------------------------------------------------
     # DYNAMIC FILLER AND PADDING ENGINE (Ensures exactly 3 unique rows)
     # ----------------------------------------------------
-    # Context-aware fallback pools to guarantee clean, non-repetitive presentation results
     backup_strengths = [
         "Data Sovereignty: Real-time calculation keeps internal farm metrics fully localized and anonymous.",
         "Systemic Versatility: Multi-criteria baseline aligns with Value4Farm framework research.",
@@ -220,7 +227,6 @@ async def generate_report(data: dict):
         "Market Tariff Shifts: Unpredictable changes in feed-in pricing rules change expected ROI curves."
     ]
 
-    # Append unique fallback entries until lists contain enough distinct statements
     for item in backup_strengths:
         if len(swot_strengths) >= 3: break
         if item not in swot_strengths: swot_strengths.append(item)
@@ -249,14 +255,13 @@ async def generate_report(data: dict):
     }
     feasibility_scores["overall"] = int(sum(feasibility_scores.values()) / 4)
 
-    # Slice at exactly 3 items to make sure the grid format in the PDF stays completely uniform
     swot_analysis = {
         "strengths": swot_strengths[:3],
         "weaknesses": swot_weaknesses[:3],
         "opportunities": swot_opportunities[:3],
         "threats": swot_threats[:3]
     }
-    
+
     # ==========================================
     # 3. DEFINE THE HTML TEMPLATE 
     # ==========================================
