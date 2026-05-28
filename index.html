@@ -659,14 +659,22 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                     <div v-for="key in ['socio_economic', 'agronomic', 'environmental', 'technical']" :key="key" 
-                        class="p-4 bg-white border border-slate-200 rounded-xl text-center shadow-sm">
-                        <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-2">{{ key.replace('_', ' ') }}</span>
-                        <span class="text-2xl font-black text-v4f-base">{{ assessmentResults.scores[key] }}%</span>
-                        <div class="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
-                            <div class="bg-v4f-base h-full" :style="{ width: assessmentResults.scores[key] + '%' }"></div>
+                        class="p-5 bg-white border border-slate-200 rounded-xl text-center shadow-sm flex flex-col justify-between">
+                        <div>
+                            <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-2">{{ key.replace('_', ' ') }}</span>
+                            
+                            <span class="text-3xl font-black text-v4f-base">{{ assessmentResults.scores[key] }}%</span>
+                            
+                            <div class="w-full bg-slate-100 h-1.5 mt-2 rounded-full overflow-hidden">
+                                <div class="bg-v4f-base h-full" :style="{ width: assessmentResults.scores[key] + '%' }"></div>
+                            </div>
                         </div>
+                
+                        <p class="text-[11px] text-slate-500 font-medium leading-relaxed mt-4 pt-3 border-t border-slate-100 italic">
+                            {{ getScoreExplanation(key, assessmentResults.scores[key]) }}
+                        </p>
                     </div>
                 </div>
 
@@ -1038,7 +1046,42 @@
                     landFields, toggleSelection, livestockOptions,
                     manureCollectionOptions, filteredLandFields,
                     slopeDirections,
-                    plotLandUseOptions, irrigationOptions, waterSourceOptions
+                    plotLandUseOptions, irrigationOptions, waterSourceOptions,
+                    
+                    // ADD THIS NEW ENGINE METHOD HERE:
+                    getScoreExplanation(category, score) {
+                        if (!score) return "No baseline data calculated.";
+                        
+                        const explanations = {
+                            socio_economic: {
+                                high: "High likelihood that the technology is economically beneficial and matches your operational timeline structure.",
+                                moderate: "Viable economic foundations, though long-term tenant structures or scale limitations require careful financial planning.",
+                                low: "Significant business case constraints. Tenure issues or localized scaling dynamics limit secure return on investment."
+                            },
+                            agronomic: {
+                                high: "Excellent crop-to-panel compatibility profile, optimizing microclimatic shielding benefits without disrupting cultivation yields.",
+                                moderate: "Balanced vegetation index; expect moderate shade adaptations or adjustments to seasonal rotation patterns.",
+                                low: "High baseline structural light disruption risks impacting standard yield metrics for sun-dependent crops."
+                            },
+                            environmental: {
+                                high: "Substantial positive lifecycle indicator; high synergy across localized organic inputs and natural resource tracking.",
+                                moderate: "Maintains a neutral to positive ecological baseline profile, aligning with regional circular sustainability goals.",
+                                low: "Low operational resource recovery value. Feedstock limits or layout issues degrade total target offsets."
+                            },
+                            technical: {
+                                high: "Optimal physical engineering baseline. Machinery clearances, soil topography, and aspect features match standard layouts perfectly.",
+                                moderate: "Technically feasible tracking framework, though specific machinery profiles or land slopes require design adjustments.",
+                                low: "Complex engineering barriers detected. Severe terrain slopes, subsurface hazards, or clearance limits restrict deployment."
+                            }
+                        };
+                
+                        // Determine tier based on the numerical calculation score
+                        let tier = "moderate";
+                        if (score >= 85) tier = "high";
+                        else if (score < 60) tier = "low";
+                
+                        return explanations[category][tier];
+                    }
                 }
             } // end of setup
         }).mount('#app')
