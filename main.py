@@ -20,20 +20,7 @@ app.add_middleware(
 
 @app.post("/generate-report")
 async def generate_report(data: dict):
-    # ==========================================
-    # 1. EXTRACT DATA FROM FRONTEND
-    # ==========================================
-    focus = data.get("auditFocus", "Not specified")
-    location = data.get("location", "Not specified")
-    size = float(data.get("totalSize") or 0)
-    unit = data.get("unit", "Hectares")
-    
-    # Extract structural sub-objects from Vue state
-    agri = data.get("agrivoltaics", {})
-    biogas = data.get("biogas", {})
-    activities = data.get("activities", [])
-
-    # ==========================================
+# ==========================================
     # 2. UNIFIED APV & BIOGAS LOOKUP ENGINE
     # ==========================================
     # Balanced baselines adjusted for dual-system flexibility
@@ -59,6 +46,7 @@ async def generate_report(data: dict):
         swot_strengths.append("Secure Asset Control: Full land title allows for hassle-free long-term structural zoning and bankable underwriting.")
     else:
         base_socio -= 15
+        swot_weaknesses.append("Contractual Bottleneck: Land lease or rental status limits long-term collateral asset assignment options.")
         swot_threats.append("Tenancy Expiry Friction: Lease timelines may not match typical 20-30 year infrastructure lifespans.")
         recommendations.append("Secure an immediate, long-term easement or surface rights extension with the landowner prior to technical applications.")
 
@@ -73,6 +61,8 @@ async def generate_report(data: dict):
         max_height = float(agri.get("maxHeight") or 0)
         obstacles = agri.get("obstacles")
         land_space = float(agri.get("landSpace") or 0)
+        irrigation = agri.get("irrigation")
+        water_source = agri.get("waterSource")
         
         # Crop-PV Synergy (Agronomic)
         if "I grow perennial crops (e.g., orchards, vineyards, berries)." in activities:
@@ -88,8 +78,20 @@ async def generate_report(data: dict):
             
             if any(c for c in selected_crops if "Root" in c or "Maize" in c):
                 base_agronomic -= 10
-                swot_weaknesses.append("High Solar Disruption: Maize/Root crops have high light-saturation points and risk microclimate yield reduction.")
+                swot_weaknesses.append("Crop Light Deficit: Maize/Root crops have high light-saturation points and risk structural microclimate yield reduction.")
                 recommendations.append("Utilize dynamic tracking algorithms that prioritize agricultural solar sharing during peak crop-growth phases.")
+
+        # Irrigation & Water Secondary Logic (Dynamic Weakness/Threat Additions)
+        if irrigation in ["Sprinkler", "Center Pivot"]:
+            base_technical -= 10
+            swot_weaknesses.append(f"Irrigation Collision Risk: Active {irrigation} frameworks require careful spatial coordination to prevent wetting module junctions.")
+            swot_threats.append("Operational Overhead: High overhead tracking infrastructure is required to clear tall physical sprayers.")
+            recommendations.append("Evaluate a sub-canopy transition to drip irrigation to enhance layout efficiency and water savings.")
+        elif irrigation == "None":
+            swot_opportunities.append("Microclimate Micro-saving: Reduced solar evaporation under panels can naturally optimize soil moisture tracking.")
+
+        if water_source == "Public Supply":
+            swot_threats.append("Resource Cost Vulnerability: High public water tariff rates degrade long-term agricultural operational margins under panels.")
 
         # Machinery Clearance & Constraints (Technical)
         if max_width > 0:
@@ -107,7 +109,7 @@ async def generate_report(data: dict):
         if max_height > 0:
             if max_height >= 3.8:
                 base_technical -= 15
-                swot_weaknesses.append(f"Elevated Overhead Risk: High machinery requirements ({max_height}m) demand heavy steel substructures, spiking CAPEX.")
+                swot_weaknesses.append(f"Elevated Overhead Risk: High machinery clearance requirements ({max_height}m) demand heavy steel substructures, spiking CAPEX.")
                 recommendations.append(f"Specify a minimum pile clearance height of {round(max_height + 0.5, 1)}m to eliminate field turnaround collision risks.")
             else:
                 swot_strengths.append("Low Structural Profile: Standard height profile permits cost-effective, lower fixed pile assemblies.")
@@ -194,14 +196,49 @@ async def generate_report(data: dict):
         recommendations.append("Incorporate a centralized battery storage system to buffer daytime solar spikes and power overnight anaerobic mixers.")
 
     # ----------------------------------------------------
-    # CLEANUP, PADDING, AND BOUNDS PROTECTION
+    # DYNAMIC FILLER AND PADDING ENGINE (Ensures exactly 3 unique rows)
     # ----------------------------------------------------
-    # Fallback padding guarantees a full, professionally polished report visual if fields are brief
-    if not swot_strengths: swot_strengths.append("Operational Adaptability: Diversified multi-criteria metrics baseline mapped.")
-    if not swot_weaknesses: swot_weaknesses.append("Requires specialized regional distribution grid headroom studies.")
-    if not swot_opportunities: swot_opportunities.append("Participation in localized carbon farming premium credit programs.")
-    if not swot_threats: swot_threats.append("Evolving provincial cross-compliance zoning regulations.")
-    if not recommendations: recommendations.append("Initiate a preliminary site coordination brief with a Value4Farm advisory team member.")
+    # Context-aware fallback pools to guarantee clean, non-repetitive presentation results
+    backup_strengths = [
+        "Data Sovereignty: Real-time calculation keeps internal farm metrics fully localized and anonymous.",
+        "Systemic Versatility: Multi-criteria baseline aligns with Value4Farm framework research.",
+        "Resource Baselines: Existing infrastructure supports clean structural transformation loops."
+    ]
+    backup_weaknesses = [
+        "CapEx Inertia: High upfront development cost profiles require secondary investment validation.",
+        "Grid Headroom Constraints: Local network connection capacities require formal verification.",
+        "Zoning Friction: Transitioning agricultural plots to dual-use requires municipal structural authorization."
+    ]
+    backup_opportunities = [
+        "Carbon Offset Valuation: Earn regional ecosystem credits via dual-use land execution.",
+        "Energy Independence: Stabilize localized operational buffers against volatile utility markets.",
+        "Decarbonization Subsidies: Unlock targeted EU sustainable agricultural transition funds."
+    ]
+    backup_threats = [
+        "Regulatory Volatility: Shifts in agricultural cross-compliance tracking parameters could impact targets.",
+        "Climatic Variances: Sudden extreme weather trends affect historical solar irradiation projections.",
+        "Market Tariff Shifts: Unpredictable changes in feed-in pricing rules change expected ROI curves."
+    ]
+
+    # Append unique fallback entries until lists contain enough distinct statements
+    for item in backup_strengths:
+        if len(swot_strengths) >= 3: break
+        if item not in swot_strengths: swot_strengths.append(item)
+
+    for item in backup_weaknesses:
+        if len(swot_weaknesses) >= 3: break
+        if item not in swot_weaknesses: swot_weaknesses.append(item)
+
+    for item in backup_opportunities:
+        if len(swot_opportunities) >= 3: break
+        if item not in swot_opportunities: swot_opportunities.append(item)
+
+    for item in backup_threats:
+        if len(swot_threats) >= 3: break
+        if item not in swot_threats: swot_threats.append(item)
+
+    if not recommendations: 
+        recommendations.append("Initiate a preliminary site coordination brief with a Value4Farm advisory team member.")
 
     # Keep scores strictly bounded between 15% and 100%
     feasibility_scores = {
@@ -212,13 +249,14 @@ async def generate_report(data: dict):
     }
     feasibility_scores["overall"] = int(sum(feasibility_scores.values()) / 4)
 
-    # Slice at 3 items to make sure the grid format in the PDF stays completely uniform
+    # Slice at exactly 3 items to make sure the grid format in the PDF stays completely uniform
     swot_analysis = {
         "strengths": swot_strengths[:3],
         "weaknesses": swot_weaknesses[:3],
         "opportunities": swot_opportunities[:3],
         "threats": swot_threats[:3]
     }
+    
     # ==========================================
     # 3. DEFINE THE HTML TEMPLATE 
     # ==========================================
