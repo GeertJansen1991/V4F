@@ -34,91 +34,123 @@ async def generate_report(data: dict):
     activities = data.get("activities", [])
 
     # ==========================================
-    # 2. SIMPLE CONDITIONAL LOOKUP LOGIC
+    # 2. UNIFIED APV & BIOGAS LOOKUP ENGINE
     # ==========================================
-    # Set fallback baselines
-    base_socio = 75
-    base_agronomic = 75
-    base_environmental = 75
-    base_technical = 75
+    # Balanced baselines adjusted for dual-system flexibility
+    base_socio = 80          
+    base_agronomic = 75       
+    base_environmental = 80   
+    base_technical = 70       
 
-# Dynamic SWOT initializations based on core farm profile
     swot_strengths = []
     swot_weaknesses = []
     swot_opportunities = []
     swot_threats = []
     recommendations = []
 
-    # --- Internal Strength: Land Ownership Structure ---
+    # Extract dynamic sub-objects from frontend JSON payload
+    agri = data.get("agrivoltaics", {})
+    biogas = data.get("biogas", {})
+    activities = data.get("activities", [])
+
+    # --- Land Ownership Structure (Universal Farm Internal Factor) ---
     ownership = data.get("ownership")
     if ownership == "Own":
-        swot_strengths.append("Full land ownership eliminates lease-boundary disputes and secures long-term asset ROI.")
-    elif ownership in ["Rent", "Leasehold"]:
-        swot_weaknesses.append("Tenant status introduces contract timeline risks for long-term infrastructure investment.")
-        recommendations.append("Review lease agreements for energy-infrastructure sub-clauses before final planning.")
-        
-    # --- External Opportunity: Succession & Continuity ---
-    continuity = data.get("continuity")
-    if "successor has already confirmed" in str(continuity) or "formal plan in place" in str(continuity):
-        swot_opportunities.append("Secured family succession aligns with long-term EU decarbonization grant timelines (15-20 years).")
+        swot_strengths.append("Secure Asset Control: Full land title allows for hassle-free long-term structural zoning and bankable underwriting.")
     else:
-        swot_opportunities.append("Project deployment can increase overall farm valuation, aiding future transfer or equity positioning.")
-   
-# ----------- DETAILED AGRIVOLTAICS EVALUATION -----------
+        base_socio -= 15
+        swot_threats.append("Tenancy Expiry Friction: Lease timelines may not match typical 20-30 year infrastructure lifespans.")
+        recommendations.append("Secure an immediate, long-term easement or surface rights extension with the landowner prior to technical applications.")
+
+    # ----------------------------------------------------
+    # SYSTEM 1: DETAILED AGRIVOLTAICS EVALUATION
+    # ----------------------------------------------------
     if focus in ["Agrivoltaics", "Both"]:
+        selected_crops = agri.get("currentCrops", [])
         terrain = agri.get("terrain")
+        slope_dir = agri.get("slopeDirection")
         max_width = float(agri.get("maxWidth") or 0)
         max_height = float(agri.get("maxHeight") or 0)
         obstacles = agri.get("obstacles")
-        slope_dir = agri.get("slopeDirection")
-        selected_crops = agri.get("currentCrops", [])
-
-        # Field Orientation (Internal Strength / Weakness)
-        if slope_dir in ["South-facing", "East-West"]:
-            base_technical += 10
-            swot_strengths.append(f"Internal field orientation ({slope_dir}) maximizes daily solar radiation capture profiles.")
-        elif slope_dir == "North-facing":
-            base_technical -= 15
-            swot_weaknesses.append("North-facing field slope decreases optimal winter solar yield generation.")
-
-        # Crop Compatibility (Internal Strength)
-        # shade-tolerant or high-synergy crop check
-        has_berries_or_orchard = "I grow perennial crops (e.g., orchards, vineyards, berries)." in activities
-        if has_berries_or_orchard:
+        land_space = float(agri.get("landSpace") or 0)
+        
+        # Crop-PV Synergy (Agronomic)
+        if "I grow perennial crops (e.g., orchards, vineyards, berries)." in activities:
             base_agronomic += 15
-            swot_strengths.append("High internal canopy synergy: Existing perennial crops adapt well to solar microclimates.")
-            swot_opportunities.append("External Opportunity: Qualifies for high-tier 'Premium Agri-PV' European structural subsidies.")
-        elif any(c for c in selected_crops if "Cereals" in c or "Root" in c):
-            swot_strengths.append("Dynamic crop rotation cycles match standard vertical or wide-spaced solar racking profiles.")
+            base_technical -= 5  
+            swot_strengths.append("High Crop-PV Synergy: Perennial crops/berries benefit immensely from modular shade and microclimate tracking.")
+            swot_opportunities.append("Premium APV Subsidies: High-clearance orchard systems qualify for top-tier European dual-use grants.")
+            recommendations.append("Prioritize overhead, semi-transparent glass-glass solar configurations to maintain appropriate crop light levels.")
+        elif "I grow arable field crops (e.g., grains, oilseeds, pulses)." in activities:
+            base_agronomic -= 5  
+            swot_strengths.append("Broadacre Flexibility: Large uniform plots simplify layout planning for standard row tracking configurations.")
+            swot_opportunities.append("Large-Scale Generation: Wide rows allow high-capacity bifacial vertical arrays, maximizing peak pricing markets.")
+            
+            if any(c for c in selected_crops if "Root" in c or "Maize" in c):
+                base_agronomic -= 10
+                swot_weaknesses.append("High Solar Disruption: Maize/Root crops have high light-saturation points and risk microclimate yield reduction.")
+                recommendations.append("Utilize dynamic tracking algorithms that prioritize agricultural solar sharing during peak crop-growth phases.")
 
-        # Terrain & Layout Rules
+        # Machinery Clearance & Constraints (Technical)
+        if max_width > 0:
+            if max_width <= 4.5:
+                base_technical += 10
+                swot_strengths.append(f"Compact Operations: Machinery width ({max_width}m) matches optimized high-density row layouts.")
+            elif max_width > 4.5 and max_width <= 9.0:
+                swot_strengths.append(f"Standard Clearance: Row configuration fits integer multiples of your {max_width}m machine cycles.")
+                recommendations.append(f"Design row interspaces at exactly {round(max_width + 0.8, 1)}m to maintain an operational safety margin.")
+            else:
+                base_technical -= 15
+                swot_threats.append(f"Extreme Machine Footprint: Massive machinery width ({max_width}m) forces ultra-wide rows, reducing solar density.")
+                recommendations.append("Evaluate whether a dedicated smaller tractor implement fleet is viable to protect target solar capacity.")
+
+        if max_height > 0:
+            if max_height >= 3.8:
+                base_technical -= 15
+                swot_weaknesses.append(f"Elevated Overhead Risk: High machinery requirements ({max_height}m) demand heavy steel substructures, spiking CAPEX.")
+                recommendations.append(f"Specify a minimum pile clearance height of {round(max_height + 0.5, 1)}m to eliminate field turnaround collision risks.")
+            else:
+                swot_strengths.append("Low Structural Profile: Standard height profile permits cost-effective, lower fixed pile assemblies.")
+
+        # Topography & Engineering Physical Bottlenecks
         if terrain == "Flat":
             base_technical += 10
-            swot_strengths.append("Flat plot topography minimizes structural engineering complexities and alignment costs.")
+            swot_strengths.append("Optimal Topography: Flat plots minimize grading requirements and ensure uniform tracking angles.")
         elif terrain == "Hilly":
             base_technical -= 20
-            swot_weaknesses.append("Steep terrain profile increases structural loading and foundation anchoring costs.")
-            recommendations.append("Conduct a detailed civil engineering topography assessment to finalize row racking systems.")
+            swot_weaknesses.append("Topographic Constraints: Slope variations (>10%) complicate mechanical single-axis tracker engineering.")
+            recommendations.append("Deploy string-level maximum power point trackers (MPPT) to mitigate uneven hill shading patterns.")
 
-        # Machinery Constraints
-        if max_width > 6.0 or max_height > 4.0:
+        if slope_dir in ["South-facing", "East-West"]:
+            base_technical += 10
+            swot_strengths.append(f"Ideal Land Aspect: {slope_dir} orientation guarantees highly efficient production yield generation profiles.")
+        elif slope_dir == "North-facing":
+            base_technical -= 15
+            swot_threats.append("Sub-optimal Microclimate: North-facing terrain coupled with panels risks creating over-chilled, damp crop conditions.")
+
+        if obstacles == "Yes":
             base_technical -= 10
-            swot_threats.append("Heavy machinery clearances exceed baseline low-height fixed solar array profiles.")
-            recommendations.append(f"Specify elevated tracker systems with a minimum clearing height of {max_height + 0.5}m.")
-        else:
-            swot_strengths.append("Existing farm machinery dimensions integrate seamlessly into standard row tracking arrays.")
+            swot_weaknesses.append("Subsurface Hazards: Documented underground obstructions mean ramming piles could damage infrastructure or fail depth tests.")
+            recommendations.append("Budget for pre-drilling validation or concrete shoe foundations rather than direct structural pile-driving.")
 
-        # Generic Agrivoltaics External Opportunity
-        swot_opportunities.append("Dual-use land framework protects agricultural zoning status while generating secondary energy revenue.")
+        if land_space > 0:
+            if land_space < 2.0:
+                base_socio -= 10
+                swot_weaknesses.append(f"Scaling Bottleneck: Small available area ({land_space} Ha) struggles to absorb fixed substation grid-entry costs.")
+            elif land_space >= 10.0:
+                base_socio += 15
+                swot_opportunities.append(f"Utility-Scale Advantage: Large footprint opens up direct private Corporate Power Purchase Agreements (PPAs).")
 
-# ----------- DETAILED BIOGAS EVALUATION -----------
+    # ----------------------------------------------------
+    # SYSTEM 2: DETAILED BIOGAS EVALUATION
+    # ----------------------------------------------------
     if focus in ["Biogas", "Both"]:
         livestock = biogas.get("selectedLivestock", [])
         pathway = biogas.get("energy", {}).get("pathway")
         gas_grid = biogas.get("infrastructure", {}).get("gasGrid")
         herd_details = biogas.get("herdDetails", {})
 
-        # Calculate animal stock totals
+        # Calculate rough animal stock baseline
         total_animals = 0
         has_pasture_risk = False
         for animal in livestock:
@@ -127,60 +159,66 @@ async def generate_report(data: dict):
             if details.get("housingMode") == "pasture":
                 has_pasture_risk = True
 
-        # Manure Stock Asset (Internal Strength)
+        # Manure Feedstock Asset Availability
         if len(livestock) > 0 and total_animals > 40:
             base_environmental += 15
             base_socio += 10
-            swot_strengths.append(f"High on-farm manure availability ({total_animals} head) secures a steady baseline biomethane potential.")
-            swot_opportunities.append("External Opportunity: Capitalize on regional circular economy credits by avoiding chemical fertilizer use.")
+            swot_strengths.append(f"High Manure Asset Volumetrics: Local herd headcount ({total_animals}) secures a reliable, consistent biomethane supply.")
+            swot_opportunities.append("Circular Economy Arbitrage: Capitalize on localized organic nutrient closed-loops, replacing chemical fertilizers.")
         else:
             base_environmental -= 10
-            swot_weaknesses.append("Low local herd count limits total daily organic volatile solid loading rates.")
+            swot_weaknesses.append("Feedstock Limitation: Low on-site animal count limits continuous daily anaerobic organic loading capability.")
 
-        # Housing Risks
         if has_pasture_risk:
             base_technical -= 20
-            swot_threats.append("Extended outdoor pasture cycles lower total daily collectible manure metrics.")
-            recommendations.append("Introduce automated scraping systems in high-traffic transition gates during outdoor cycles.")
+            swot_threats.append("Manure Collection Deficit: Continuous open pasture modes drastically reduce total collectable slurry metrics.")
+            recommendations.append("Optimize high-traffic transitional bedding capture mechanics during colder indoor-stabling months.")
 
-        # Infrastructure Pathways (External Opportunities & Threats)
+        # Pathway vs Infrastructure Logic
         if pathway == "Biomethane":
             if gas_grid == "Yes":
-                swot_opportunities.append("Direct proximity to regional gas grid unlocks favorable industrial biomethane injection tariffs.")
+                swot_opportunities.append("Direct Pipeline Connectivity: Proximity to regional networks unlocks premium biomethane injection tariffs.")
             else:
                 base_technical -= 25
-                swot_threats.append("Lack of physical gas grid access imposes high virtual-pipeline (trucking/compression) logistics costs.")
-                recommendations.append("Pivot operational focus to localized Combined Heat & Power (CHP) grid-tied generation networks.")
+                swot_threats.append("Logistical Bottleneck: Lack of close gas grid infrastructure forces high virtual compressed trucking transport costs.")
+                recommendations.append("Pivot technical focus toward local grid-tied Combined Heat & Power (CHP) generating systems.")
         elif pathway == "CHP":
-            swot_opportunities.append("Local net-metering laws support onsite thermal offset loops for agricultural process heating.")
- 
-    # ----------- SCORE CONSTRAINT BOUNDS -----------
-    # Keep final mock math scaled safely between 0% and 100%
+            swot_opportunities.append("Thermal Offset Efficiency: Local cogeneration policies support direct district or process facility heating loops.")
+
+    # ----------------------------------------------------
+    # CROSS-SYSTEM SYNERGY (Only triggers if user picks "Both")
+    # ----------------------------------------------------
+    if focus == "Both":
+        base_environmental += 10
+        swot_opportunities.append("Integrated Microgrid Synergy: APV electrical production can directly power biogas digester auxiliary pumping tools.")
+        recommendations.append("Incorporate a centralized battery storage system to buffer daytime solar spikes and power overnight anaerobic mixers.")
+
+    # ----------------------------------------------------
+    # CLEANUP, PADDING, AND BOUNDS PROTECTION
+    # ----------------------------------------------------
+    # Fallback padding guarantees a full, professionally polished report visual if fields are brief
+    if not swot_strengths: swot_strengths.append("Operational Adaptability: Diversified multi-criteria metrics baseline mapped.")
+    if not swot_weaknesses: swot_weaknesses.append("Requires specialized regional distribution grid headroom studies.")
+    if not swot_opportunities: swot_opportunities.append("Participation in localized carbon farming premium credit programs.")
+    if not swot_threats: swot_threats.append("Evolving provincial cross-compliance zoning regulations.")
+    if not recommendations: recommendations.append("Initiate a preliminary site coordination brief with a Value4Farm advisory team member.")
+
+    # Keep scores strictly bounded between 15% and 100%
     feasibility_scores = {
-        "socio_economic": max(10, min(100, base_socio)),
-        "agronomic": max(10, min(100, base_agronomic)),
-        "environmental": max(10, min(100, base_environmental)),
-        "technical": max(10, min(100, base_technical))
+        "socio_economic": max(15, min(100, base_socio)),
+        "agronomic": max(15, min(100, base_agronomic)),
+        "environmental": max(15, min(100, base_environmental)),
+        "technical": max(15, min(100, base_technical))
     }
-    
-    # Calculate overall weight average
     feasibility_scores["overall"] = int(sum(feasibility_scores.values()) / 4)
 
-    # Clean empty lists defaults just in case
-    if not recommendations:
-        recommendations.append("Schedule a spatial engineering site verification with a Value4Farm coordinator.")
-
-    # Add default fallbacks if lists are brief
-    while len(swot_weaknesses) < 2: swot_weaknesses.append("Baseline project dependency checks pending step 3 transitions.")
-    while len(swot_threats) < 2: swot_threats.append("Regulatory shifting limits require updated zoning reviews.")
-
+    # Slice at 3 items to make sure the grid format in the PDF stays completely uniform
     swot_analysis = {
         "strengths": swot_strengths[:3],
         "weaknesses": swot_weaknesses[:3],
         "opportunities": swot_opportunities[:3],
         "threats": swot_threats[:3]
     }
-
     # ==========================================
     # 3. DEFINE THE HTML TEMPLATE 
     # ==========================================
