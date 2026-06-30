@@ -274,34 +274,117 @@
                     </div>
                 </div>
 
+                <!-- Section 3: Resource Use -->
                 <div v-if="currentSection === 'resources'" class="space-y-8 animate-fade-in">
                     <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Resource Use</h2>
-                    <p class="text-slate-500 mb-6 font-medium">Please provide your estimated annual usage. Check "Don't know" if unsure.</p>
-                    <div class="space-y-6">
+                    <p class="text-slate-500 mb-6 font-medium">Please provide your estimated annual breakdown details. Check "Don't know" if unsure.</p>
+                    
+                    <div class="space-y-8">
                         <div v-for="res in resourceConfigs" :key="res.id" 
-                            class="flex flex-col sm:flex-row sm:items-center gap-4 p-4 bg-v4f-bg border border-slate-200 rounded-xl group relative">
-                            <label class="w-32 font-bold text-v4f-neutral flex items-center">
-                                {{ res.label }}:
-                                <span class="info-group cursor-help text-v4f-base">
-                                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="info-tooltip">{{ res.hint }}</div>
-                                </span>
-                            </label>
-                            <div class="flex-1 flex items-center gap-3">
-                                <input type="number" v-model="formData.resources[res.id].value" placeholder="0" min="0"
-                                    :disabled="formData.resources[res.id].dontKnow"
-                                    :class="formData.resources[res.id].dontKnow ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'"
-                                    class="w-full sm:w-32 p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium transition-colors">
-                                <span class="w-20 text-sm text-slate-500 font-bold" v-html="res.unit"></span>
+                            class="p-6 bg-v4f-bg border border-slate-200 rounded-2xl relative space-y-4">
+                            
+                            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                                <label class="font-bold text-lg text-v4f-neutral flex items-center">
+                                    {{ res.label }} Parameters
+                                    <span class="info-group cursor-help text-v4f-base">
+                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <div class="info-tooltip">{{ res.hint }}</div>
+                                    </span>
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" :id="'dontknow-' + res.id" v-model="formData.resources[res.id].dontKnow"
+                                        @change="handleDontKnowChange(res.id)" class="v4f-checkbox w-5 h-5 text-v4f-base rounded border-slate-300 cursor-pointer">
+                                    <label :for="'dontknow-' + res.id" class="text-sm font-medium text-slate-600 cursor-pointer select-none">Don't know</label>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2 sm:w-32 border-t sm:border-t-0 border-slate-200 pt-3 sm:pt-0 mt-2 sm:mt-0">
-                                <input type="checkbox" :id="'dontknow-' + res.id" v-model="formData.resources[res.id].dontKnow"
-                                    @change="handleDontKnowChange(res.id)" class="v4f-checkbox w-5 h-5 text-v4f-base rounded border-slate-300 cursor-pointer">
-                                <label :for="'dontknow-' + res.id" class="text-sm font-medium text-slate-600 cursor-pointer select-none">Don't know</label>
+
+                            <div v-if="!formData.resources[res.id].dontKnow" class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">
+                                        {{ res.labels.total }}
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources[res.id].value" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12" v-html="res.unit"></span>
+                                    </div>
+                                </div>
+                                
+                                <div v-if="res.labels.own">
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">
+                                        {{ res.labels.own }}
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources[res.id].ownGenerated" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12" v-html="res.unit"></span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">
+                                        {{ res.labels.cost }}
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources[res.id].annualBill" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">EUR/yr</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-else class="text-sm italic text-slate-400 p-2">
+                                Resource parameter evaluation skipped.
                             </div>
                         </div>
+
+                        <!-- Manure Management Custom Sub-form -->
+                        <div v-if="formData.auditFocus === 'Biogas' || formData.auditFocus === 'Both'" 
+                            class="p-6 bg-v4f-bg border border-slate-200 rounded-2xl relative space-y-4">
+                            
+                            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                                <label class="font-bold text-lg text-v4f-neutral flex items-center">
+                                    Organic Manure Management
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="dontknow-manure" v-model="formData.resources.manure.dontKnow"
+                                        class="v4f-checkbox w-5 h-5 text-v4f-base rounded border-slate-300 cursor-pointer">
+                                    <label for="dontknow-manure" class="text-sm font-medium text-slate-600 cursor-pointer select-none">Don't know</label>
+                                </div>
+                            </div>
+
+                            <div v-if="!formData.resources.manure.dontKnow" class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Used On-Farm</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources.manure.usedOnFarm" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">tonne/yr</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Exported Off-Farm</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources.manure.exportedOffFarm" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">tonne/yr</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Financial Processing Cost</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources.manure.processingCost" placeholder="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">EUR/yr</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -370,7 +453,7 @@
                             class="space-y-6 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Section 2: Crop Compatibility & Water</h3>
                         
-                        <label class="block font-bold text-v4f-neutral text-sm mb-2">Crops intended for Agri-PV plots: [cite: 65]</label>
+                        <label class="block font-bold text-v4f-neutral text-sm mb-2">Crops intended for Agri-PV plots:</label>
                         <div class="flex flex-col gap-2 mb-6">
                             <button v-for="crop in agriCropOptions" 
                                     @click="toggleSelection(formData.agrivoltaics.currentCrops, crop)"
@@ -382,13 +465,13 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Current Irrigation: [cite: 73]</label>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Current Irrigation:</label>
                                 <select v-model="formData.agrivoltaics.irrigation" class="w-full p-4 bg-v4f-bg border rounded-xl">
                                     <option v-for="opt in irrigationOptions" :key="opt" :value="opt">{{ opt }}</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Water Source: [cite: 74]</label>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Water Source:</label>
                                 <select v-model="formData.agrivoltaics.waterSource" class="w-full p-4 bg-v4f-bg border rounded-xl">
                                     <option v-for="opt in waterSourceOptions" :key="opt" :value="opt">{{ opt }}</option>
                                 </select>
@@ -397,22 +480,22 @@
                     </section>
 
                     <section class="space-y-6 pt-6 border-t border-slate-100">
-                        <h3 class="text-xl font-bold text-v4f-base">Section 3: Machinery & Space Constraints [cite: 75]</h3>
-                        <p class="text-sm text-slate-500 italic">Tell us about your "widest and tallest" machines to ensure smooth operations. [cite: 77]</p>
+                        <h3 class="text-xl font-bold text-v4f-base">Section 3: Machinery & Space Constraints</h3>
+                        <p class="text-sm text-slate-500 italic">Tell us about your "widest and tallest" machines to ensure smooth operations.</p>
                         
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Max Working Width (m) [cite: 78]</label>
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Max Working Width (m)</label>
                                 <input type="number" v-model="formData.agrivoltaics.maxWidth" placeholder="Meters" step="0.1"
                                     class="w-full p-3 bg-v4f-bg border rounded-lg outline-v4f-base">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Max Machine Height (m) [cite: 79]</label>
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Max Machine Height (m)</label>
                                 <input type="number" v-model="formData.agrivoltaics.maxHeight" placeholder="Meters" step="0.1"
                                     class="w-full p-3 bg-v4f-bg border rounded-lg outline-v4f-base">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Turning Radius (m) </label>
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Turning Radius (m)</label>
                                 <input type="number" v-model="formData.agrivoltaics.turningRadius" placeholder="Meters" step="0.1"
                                     class="w-full p-3 bg-v4f-bg border rounded-lg outline-v4f-base">
                             </div>
@@ -721,13 +804,14 @@
                     unit: 'Hectares', 
                     arable: null,
                     grassland: null,
-                    perennial: null, // New category[cite: 3]
-                    greenhouses: null, // New category[cite: 3]
+                    perennial: null, 
+                    greenhouses: null, 
                     resources: {
-                        fertilizer: { value: null, dontKnow: false },
+                        fertilizer: { value: null, ownGenerated: null, annualBill: null, dontKnow: false },
                         water: { value: null, dontKnow: false },
-                        electricity: { value: null, dontKnow: false },
-                        gas: { value: null, dontKnow: false }
+                        electricity: { value: null, ownGenerated: null, annualBill: null, dontKnow: false },
+                        gas: { value: null, ownGenerated: null, annualBill: null, dontKnow: false },
+                        manure: { usedOnFarm: null, exportedOffFarm: null, processingCost: null, dontKnow: false }
                     },
                     energy: {
                         consumption: null,
@@ -737,13 +821,13 @@
                     },
                     agrivoltaics: {
                         hasPanels: '',
-                        installedCapacity: null, // Simplified from 3 fields to 1
-                        landSpace: null,         // Estimated area for new PV [cite: 40]
-                        plotLandUse: '',         // Specific land use for the PV plot [cite: 41-44]
-                        terrain: '',             // Lay of the land [cite: 45-48]
-                        slopeDirection: '',      // Added: Land orientation [cite: 49]
+                        installedCapacity: null, 
+                        landSpace: null,         
+                        plotLandUse: '',         
+                        terrain: '',             
+                        slopeDirection: '',      
                         soilType: '',
-                        obstacles: '',           // Added: Underground obstacles 
+                        obstacles: '',           
                         currentCrops: [],
                         irrigation: '',
                         waterSource: '',
@@ -753,8 +837,8 @@
                     },
                     biogas: {
                         selectedLivestock: [],
-                        herdDetails: {}, // Stores animal count and housing time
-                        manureSystems: {}, // Stores collection methods
+                        herdDetails: {}, 
+                        manureSystems: {}, 
                         storage: {
                             liquid: { capacity: null, cover: '' },
                             solid: { capacity: null, cover: '' }
@@ -771,7 +855,6 @@
 
                 const filteredLandFields = computed(() => {
                     return landFields.filter(field => {
-                        // Always show 'Other' logic is handled separately, so we focus on the inputs
                         if (field.id === 'grassland') return formData.value.activities.includes('I raise livestock.');
                         if (field.id === 'greenhouses') return formData.value.activities.includes('I manage greenhouse cultivation.');
                         if (field.id === 'arable') return formData.value.activities.includes('I grow arable field crops (e.g., grains, oilseeds, pulses).');
@@ -780,7 +863,6 @@
                     });
                 });
 
-                // These store the specific wording from your Word document[cite: 3]
                 const activityOptions = [
                     { label: 'I grow arable field crops (e.g., grains, oilseeds, pulses).' },
                     { label: 'I raise livestock.' },
@@ -858,14 +940,12 @@
                     } else {
                         list.push(val);
                         if (section === 'biogas') {
-                            // Initialize the object first
                             formData.value.biogas.herdDetails[val] = { 
                                 count: 0, 
                                 monthsInside: 12, 
                                 housingMode: 'inside'
                             };
                             
-                            // Explicitly add subtype for Bovine
                             if (val === 'Bovine') {
                                 formData.value.biogas.herdDetails[val].subtype = [];
                             } else {
@@ -907,25 +987,28 @@
                                                 !!formData.value.continuity;
                     
                     if (section === 'area') {
-                        // 1. Ensure a total size is entered
                         const hasTotal = formData.value.totalSize > 0;
-                        
-                        // 2. Ensure "Other land" isn't negative (meaning sub-fields > total)
                         const isValidMath = otherSize.value >= 0;
-                        
                         return hasTotal && isValidMath;
                     }
                     
-                    if (section === 'resources') return resourceConfigs.value.every(res => {
-                        const r = formData.value.resources[res.id];
-                        return r.dontKnow || (r.value !== null && r.value !== '');
-                    });
+                    if (section === 'resources') {
+                        const resValid = resourceConfigs.value.every(res => {
+                            const r = formData.value.resources[res.id];
+                            return r.dontKnow || (r.value !== null && r.value !== '' && r.annualBill !== null && r.annualBill !== '');
+                        });
+                        
+                        const manureTrack = formData.value.resources.manure;
+                        const manureValid = manureTrack.dontKnow || (formData.value.auditFocus !== 'Biogas' && formData.value.auditFocus !== 'Both') || 
+                                            (manureTrack.usedOnFarm !== null && manureTrack.exportedOffFarm !== null);
+                                            
+                        return resValid && manureValid;
+                    }
 
                     if (section === 'agrivoltaics') {
                         const agri = formData.value.agrivoltaics;
                         const activities = formData.value.activities;
 
-                        // 1. Basic Foundation Checks [cite: 29-40, 45-51]
                         const foundationValid = !!agri.hasPanels && 
                                                 agri.landSpace > 0 && 
                                                 !!agri.plotLandUse && 
@@ -934,11 +1017,8 @@
                                                 !!agri.obstacles &&
                                                 !!agri.turningRadius;
 
-                        // 2. Crop/Water Check (Only if they are crop farmers) [cite: 63-74]
                         const isCropFarmer = activities.some(a => a.includes('arable') || a.includes('perennial'));
                         const cropsValid = isCropFarmer ? (agri.currentCrops.length > 0 && !!agri.irrigation) : true;
-
-                        // 3. Machinery Check [cite: 76-79]
                         const machineryValid = agri.maxWidth > 0 && agri.maxHeight > 0;
 
                         return foundationValid && cropsValid && machineryValid;
@@ -946,15 +1026,11 @@
 
                     if (section === 'biogas') {
                         const bio = formData.value.biogas;
-                        
-                        // Check if Bovine is selected but no subtype is picked
                         const bovineNeedsSubtype = bio.selectedLivestock.includes('Bovine') && 
                                                 (!bio.herdDetails['Bovine'].subtype || bio.herdDetails['Bovine'].subtype.length === 0);
                                                 
                         const hasHeat = bio.energy.heat !== null && bio.energy.heat !== '';
                         const hasInfrastructure = !!bio.infrastructure.gasGrid;
-                        
-                        // NEW: Ensure a utilization pathway is selected
                         const hasPathway = !!bio.energy.pathway;
                         
                         return hasHeat && hasInfrastructure && hasPathway && !bovineNeedsSubtype;
@@ -979,10 +1055,34 @@
                 }
 
                 const baseResourceConfigs = [
-                    { id: 'fertilizer', label: 'Fertilizer', unit: 'tonne/yr', hint: 'Annual use of both organic (manure) and synthetic fertilizers across all plots.' },
-                    { id: 'water', label: 'Water', unit: 'm&sup3;/yr', hint: 'Total water consumption including irrigation, livestock drinking water, and cleaning.' }, 
-                    { id: 'electricity', label: 'Electricity', unit: 'kWh/yr', hint: 'Annual grid consumption. Important for calculating solar self-consumption potential.' },
-                    { id: 'gas', label: 'Gas', unit: 'Nm&sup3;/yr', hint: 'Natural gas or LPG use. This helps evaluate the replacement potential for Biomethane.' }
+                    { 
+                        id: 'fertilizer', 
+                        label: 'Mineral Fertilizer', 
+                        unit: 'tonne/yr', 
+                        hint: 'Annual mineral fertilizer utilization properties and total expenditure parameters.',
+                        labels: { total: 'Mineral Fertilizer Used', own: null, cost: 'Annual Fertilizer Expense' }
+                    },
+                    { 
+                        id: 'water', 
+                        label: 'Water', 
+                        unit: 'm&sup3;/yr', 
+                        hint: 'Total water consumption including irrigation, livestock drinking water, and cleaning.',
+                        labels: { total: 'Total Water Used', own: null, cost: 'Annual Water Bill' }
+                    }, 
+                    { 
+                        id: 'electricity', 
+                        label: 'Electricity Usage', 
+                        unit: 'kWh/yr', 
+                        hint: 'Annual consumption footprint metrics across production installations.',
+                        labels: { total: 'Total Electricity Used', own: 'Generated On-Farm', cost: 'Annual Electricity Bill' }
+                    },
+                    { 
+                        id: 'gas', 
+                        label: 'Gas Usage', 
+                        unit: 'Nm&sup3;/yr', 
+                        hint: 'Natural gas or LPG consumption profiles across facility workflows.',
+                        labels: { total: 'Total Gas Used', own: 'Generated On-Farm', cost: 'Annual Gas Bill' }
+                    }
                 ];
                 const resourceConfigs = computed(() => {
                     const focus = formData.value.auditFocus;
@@ -991,7 +1091,11 @@
                     return baseResourceConfigs;
                 });
                 function handleDontKnowChange(resourceId) {
-                    if (formData.value.resources[resourceId].dontKnow) formData.value.resources[resourceId].value = null;
+                    if (formData.value.resources[resourceId].dontKnow) {
+                        formData.value.resources[resourceId].value = null;
+                        if (formData.value.resources[resourceId].ownGenerated !== undefined) formData.value.resources[resourceId].ownGenerated = null;
+                        formData.value.resources[resourceId].annualBill = null;
+                    }
                 }
 
                 function nextStep() {
@@ -1048,7 +1152,6 @@
                     slopeDirections,
                     plotLandUseOptions, irrigationOptions, waterSourceOptions,
                     
-                    // ADD THIS NEW ENGINE METHOD HERE:
                     getScoreExplanation(category, score) {
                         if (!score) return "No baseline data calculated.";
                         
@@ -1075,7 +1178,6 @@
                             }
                         };
                 
-                        // Determine tier based on the numerical calculation score
                         let tier = "moderate";
                         if (score >= 85) tier = "high";
                         else if (score < 60) tier = "low";
@@ -1083,7 +1185,7 @@
                         return explanations[category][tier];
                     }
                 }
-            } // end of setup
+            } 
         }).mount('#app')
     </script>
 </body>
