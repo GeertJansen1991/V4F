@@ -1,0 +1,500 @@
+{
+  "APV": [
+    {
+      "Input table": "Power density (p)",
+      "Table name": "APV_Pow_Den",
+      "Type/value": "220 W/m²",
+    },
+    {
+      "Input table": "Coverage factor (CF)",
+      "Table name": "APV_Cov_Fac",
+      "Type/value": 0.6,
+    },
+    {
+      "Input table": "System lifetime",
+      "Table name": "APV_Sys_Lif",
+      "Type/value": "25 years",
+    },
+    {
+      "Input table": "Embodied carbon",
+      "Table name": "APV_Emb_Car",
+      "Type/value": "20 gCO₂,e/kWh",
+    },
+    {
+      "Input table": "Capital expenditures",
+      "Table name": "APV_CAPEX",
+      "Type/value": "€1000/kWp",
+    },
+    {
+      "Input table": "Operational expenditures",
+      "Table name": "APV_OPEX",
+      "Type/value": "0,5% of CAPEX",
+    },
+    {
+      "Input table": "Crop quantity",
+      "Table name": "APV_Cro_Qny",
+      "Type/value": "Lookup table",
+    }
+  ],
+  "APV_Main": [
+    {
+      "Country": "Austria",
+      "APV_Cap_Fac": 13.36,
+      "Ele_Cos": 20.29,
+      "Gri_Car": 55.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Belgium",
+      "APV_Cap_Fac": 12.44,
+      "Ele_Cos": 19.4,
+      "Gri_Car": 145.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Bulgaria",
+      "APV_Cap_Fac": 15.38,
+      "Ele_Cos": 12.71,
+      "Gri_Car": 301.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Negative",
+      "APV_Sub": "Negative"
+    },
+    {
+      "Country": "Switzerland",
+      "APV_Cap_Fac": 14.01,
+      "Ele_Cos": 13.6,
+      "Gri_Car": 98.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Positive",
+      "APV_Per": "Negative",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Czech Republic",
+      "APV_Cap_Fac": 12.55,
+      "Ele_Cos": 18.44,
+      "Gri_Car": 332.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Positive",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Germany",
+      "APV_Cap_Fac": 12.34,
+      "Ele_Cos": 22.81,
+      "Gri_Car": 298.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Positive",
+      "APV_Per": "Positive",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Denmark",
+      "APV_Cap_Fac": 11.28,
+      "Ele_Cos": 12.36,
+      "Gri_Car": 76.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Estonia",
+      "APV_Cap_Fac": 10.58,
+      "Ele_Cos": 14.35,
+      "Gri_Car": 585.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Negative"
+    },
+    {
+      "Country": "Spain",
+      "APV_Cap_Fac": 16.64,
+      "Ele_Cos": 14.13,
+      "Gri_Car": 129.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Finland",
+      "APV_Cap_Fac": 8.4,
+      "Ele_Cos": 8.04,
+      "Gri_Car": 37.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Negative",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Negative"
+    },
+    {
+      "Country": "France",
+      "APV_Cap_Fac": 14.6,
+      "Ele_Cos": 16.4,
+      "Gri_Car": 43.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Greece",
+      "APV_Cap_Fac": 17.97,
+      "Ele_Cos": 19.67,
+      "Gri_Car": 285.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Croatia",
+      "APV_Cap_Fac": 15.28,
+      "Ele_Cos": 23.11,
+      "Gri_Car": 141.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Hungary",
+      "APV_Cap_Fac": 14.32,
+      "Ele_Cos": 21.21,
+      "Gri_Car": 137.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Negative",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Ireland",
+      "APV_Cap_Fac": 10.72,
+      "Ele_Cos": 27.26,
+      "Gri_Car": 238.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Italy",
+      "APV_Cap_Fac": 16.47,
+      "Ele_Cos": 23.36,
+      "Gri_Car": 180.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Lithuania",
+      "APV_Cap_Fac": 11.41,
+      "Ele_Cos": 16.0,
+      "Gri_Car": 29.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Luxembourg",
+      "APV_Cap_Fac": 12.22,
+      "Ele_Cos": 17.75,
+      "Gri_Car": 37.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Latvia",
+      "APV_Cap_Fac": 11.0,
+      "Ele_Cos": 13.75,
+      "Gri_Car": 82.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Negative"
+    },
+    {
+      "Country": "Netherlands",
+      "APV_Cap_Fac": 12.09,
+      "Ele_Cos": 20.46,
+      "Gri_Car": 235.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Norway",
+      "APV_Cap_Fac": 6.86,
+      "Ele_Cos": 8.2,
+      "Gri_Car": 27.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Negative",
+      "APV_Sub": "Negative"
+    },
+    {
+      "Country": "Poland",
+      "APV_Cap_Fac": 12.55,
+      "Ele_Cos": 19.95,
+      "Gri_Car": 554.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Negative",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Portugal",
+      "APV_Cap_Fac": 18.84,
+      "Ele_Cos": 13.22,
+      "Gri_Car": 72.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Romania",
+      "APV_Cap_Fac": 14.56,
+      "Ele_Cos": 17.19,
+      "Gri_Car": 296.0,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Negative",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Slovenia",
+      "APV_Cap_Fac": 14.45,
+      "Ele_Cos": 15.55,
+      "Gri_Car": 172.0,
+      "APV_Pol": "Positive",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Slovakia",
+      "APV_Cap_Fac": 13.4,
+      "Ele_Cos": 19.67,
+      "Gri_Car": 75.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Negative",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "Sweden",
+      "APV_Cap_Fac": 9.21,
+      "Ele_Cos": 9.64,
+      "Gri_Car": 7.0,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Positive",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Neutral"
+    },
+    {
+      "Country": "United Kingdom",
+      "APV_Cap_Fac": 11.17,
+      "Ele_Cos": 19.5,
+      "Gri_Car": null,
+      "APV_Pol": "Neutral",
+      "APV_Rev": "Neutral",
+      "APV_Per": "Neutral",
+      "APV_Sub": "Positive"
+    },
+    {
+      "Country": "Iceland",
+      "APV_Cap_Fac": 10.06,
+      "Ele_Cos": null,
+      "Gri_Car": null,
+      "APV_Pol": "Negative",
+      "APV_Rev": "Negative",
+      "APV_Per": "Negative",
+      "APV_Sub": "Negative"
+    }
+  ],
+  "APV_Ene_Pot": [
+    {
+      "kWh/kWp": "<800",
+      "BBN value": 0.1
+    },
+    {
+      "kWh/kWp": "800-1100",
+      "BBN value": 0.3
+    },
+    {
+      "kWh/kWp": "1100-1400",
+      "BBN value": 0.5
+    },
+    {
+      "kWh/kWp": "1400-1700",
+      "BBN value": 0.7
+    },
+    {
+      "kWh/kWp": ">1700",
+      "BBN value": 0.9
+    }
+  ],
+  "APV_Ele_Off": [
+    {
+      "Offset percentage": "0-15%",
+      "BBN value": 0.1
+    },
+    {
+      "Offset percentage": "15-30%",
+      "BBN value": 0.3
+    },
+    {
+      "Offset percentage": "30-45%",
+      "BBN value": 0.5
+    },
+    {
+      "Offset percentage": "45-60%",
+      "BBN value": 0.7
+    },
+    {
+      "Offset percentage": ">60%",
+      "BBN value": 0.9
+    }
+  ],
+  "APV_Vis_Imp": [
+    {
+      "Land size": "<1ha",
+      "BBN value": 0.1
+    },
+    {
+      "Land size": "1ha - 3ha",
+      "BBN value": 0.3
+    },
+    {
+      "Land size": "3ha - 5ha",
+      "BBN value": 0.5
+    },
+    {
+      "Land size": "5ha - 7ha",
+      "BBN value": 0.7
+    },
+    {
+      "Land size": ">7ha",
+      "BBN value": 0.9
+    }
+  ],
+  "APV_Env_Pot": [
+    {
+      "Greenhouse gas impact": "> + 30g/kWh",
+      "BBN Value": 0.1
+    },
+    {
+      "Greenhouse gas impact": "+10 - +30g/kWh",
+      "BBN Value": 0.3
+    },
+    {
+      "Greenhouse gas impact": "+10 - -10g/kWh",
+      "BBN Value": 0.5
+    },
+    {
+      "Greenhouse gas impact": "-10 - -30g/kWh",
+      "BBN Value": 0.7
+    },
+    {
+      "Greenhouse gas impact": "<-30g/kWh",
+      "BBN Value": 0.9
+    }
+  ],
+  "APV_Eco_Pot": [
+    {
+      "Return on Investment": "< -50%",
+      "BBN value": 0.1
+    },
+    {
+      "Return on Investment": "-50% - -25%",
+      "BBN value": 0.3
+    },
+    {
+      "Return on Investment": "-50% - 50%",
+      "BBN value": 0.5
+    },
+    {
+      "Return on Investment": "50% - 200%",
+      "BBN value": 0.7
+    },
+    {
+      "Return on Investment": ">200%",
+      "BBN value": 0.9
+    }
+  ],
+  "APV_Wat_Dem": [
+    {
+      "Climate 1 (<750 W/m²)": 0.5,
+      "Climate 2 (750–1099 W/m²)": 0.6,
+      "Climate 3 (1100–1749 W/m²)": 0.7,
+      "Climate 4 (>1750 W/m²)": 0.8
+    }
+  ],
+  "APV_Far_Com": [
+    {
+      "Unnamed: 0": "Heigth",
+      "Low": 0.3,
+      "Medium": 0.5,
+      "High": 0.7
+    },
+    {
+      "Unnamed: 0": "Width",
+      "Low": 0.3,
+      "Medium": 0.5,
+      "High": 0.7
+    }
+  ],
+  "APV_Cro_Yld": [
+    {
+      "Crop Category": "Cereals (Wheat, Barley, etc.)",
+      "Climate 1 (<750 W/m²)": 0.1,
+      "Climate 2 (750–1099 W/m²)": 0.3,
+      "Climate 3 (1100–1749 W/m²)": 0.5,
+      "Climate 4 (>1750 W/m²)": 0.7
+    },
+    {
+      "Crop Category": "Maize (Grain, Corn-cob mix)",
+      "Climate 1 (<750 W/m²)": 0.1,
+      "Climate 2 (750–1099 W/m²)": 0.2,
+      "Climate 3 (1100–1749 W/m²)": 0.3,
+      "Climate 4 (>1750 W/m²)": 0.5
+    },
+    {
+      "Crop Category": "Root/Tuber crops (Sugar beet, Potatoes)",
+      "Climate 1 (<750 W/m²)": 0.3,
+      "Climate 2 (750–1099 W/m²)": 0.5,
+      "Climate 3 (1100–1749 W/m²)": 0.7,
+      "Climate 4 (>1750 W/m²)": 0.9
+    },
+    {
+      "Crop Category": "Pulses/Legumes (Beans, Peas, Lupins)",
+      "Climate 1 (<750 W/m²)": 0.3,
+      "Climate 2 (750–1099 W/m²)": 0.5,
+      "Climate 3 (1100–1749 W/m²)": 0.6,
+      "Climate 4 (>1750 W/m²)": 0.7
+    },
+    {
+      "Crop Category": "Industrial crops (Oilseed, Sunflower, etc.)",
+      "Climate 1 (<750 W/m²)": 0.1,
+      "Climate 2 (750–1099 W/m²)": 0.3,
+      "Climate 3 (1100–1749 W/m²)": 0.5,
+      "Climate 4 (>1750 W/m²)": 0.6
+    }
+  ]
+}
