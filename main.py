@@ -1,126 +1,1192 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from weasyprint import HTML
-from jinja2 import Template
-import base64
-import json
-import os
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V4F Audit Tool - WUR</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        v4f: {
+                            base: '#95C11F',     
+                            accent: '#F9B333',   
+                            neutral: '#74776A',  
+                            bg: '#FAFAFA'        
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['Playfair Display', 'serif'], 
+                        sans: ['DM Sans', 'sans-serif']       
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #FAFAFA; font-family: 'DM Sans', sans-serif; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        .v4f-checkbox:checked { background-color: #95C11F; border-color: #95C11F; }
+        .info-group {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
 
-app = FastAPI()
+        .info-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 240px;
+            background-color: #74776A; 
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 100;
+            transition: opacity 0.3s;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1.2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
 
-# Configure CORS cross-origin allowances for front-end integration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        .group:hover .info-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
 
-def load_v4f_cpt_database() -> dict:
-    """
-    Loads our externalized database containing the structured CPT arrays.
-    """
-    json_path = "v4f_tables.json"
-    if os.path.exists(json_path):
-        with open(json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-def match_cpt_interval(rows: list, numeric_value: float, range_key: str) -> float:
-    """
-    Dynamically maps a raw number to its true conditional BBN probability weight 
-    by checking bounding interval rows from the generated JSON file.
-    """
-    for row in rows:
-        range_str = str(row.get(range_key, "")).replace(" ", "")
-        bbn_val = row.get("BBN value") or row.get("BBN Value")
-        if bbn_val is None:
-            continue
+        .info-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #74776A transparent transparent transparent;
+        }
+    </style>
+</head>
+<body class="text-slate-900">
+    <div id="app" class="max-w-3xl mx-auto py-12 px-6">
+        
+        <header class="mb-10 text-center">
+            <h1 class="text-5xl font-black text-v4f-neutral tracking-tight">Value4Farm</h1>
+            <p class="text-v4f-neutral mt-2 font-medium uppercase tracking-widest text-sm">Audit Tool</p>
             
-        try:
-            if "<=" in range_str:
-                if numeric_value <= float(range_str.replace("<=", "")): return float(bbn_val)
-            elif "<" in range_str:
-                if numeric_value < float(range_str.replace("<", "")): return float(bbn_val)
-            elif ">" in range_str:
-                if numeric_value > float(range_str.replace(">", "")): return float(bbn_val)
-            elif "-" in range_str:
-                low, high = range_str.split("-")
-                if float(low) <= numeric_value <= float(high): return float(bbn_val)
-        except ValueError:
-            continue
-    return 0.5  # Neutral default value if no criteria match
+            <div v-if="currentView === 'form' && currentStep > 1" class="mt-10 max-w-md mx-auto animate-fade-in">
+                <div class="flex justify-between items-end mb-2">
+                    <span class="text-xs font-bold text-v4f-neutral uppercase">Assessment Progress</span>
+                    <span class="text-lg font-black text-v4f-base">{{ progressPercentage }}%</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-3">
+                    <div class="bg-v4f-base h-3 rounded-full transition-all duration-700 ease-in-out" 
+                         :style="{ width: progressPercentage + '%' }"></div>
+                </div>
+            </div>
+        </header>
 
-@app.post("/generate-report")
-async def generate_report(data: dict):
-    # ==========================================
-    # 1. INITIALIZE DATA & LOAD CPTs
-    # ==========================================
-    db = load_v4f_cpt_database()
-    
-    location = data.get("location", "Netherlands")
-    agri = data.get("agrivoltaics", {})
-    land_space = float(agri.get("landSpace") or 0)
-    
-    # ==========================================
-    # 2. EVALUATE GOVERNANCE PARENT NODE
-    # ==========================================
-    country_rows = db.get("APV_Main", [])
-    # Find the specific row dictionary for the user's selected country
-    country_data = next((row for row in country_rows if row.get("Country") == location), {})
-    
-    # Standard probability state mappings derived from CPT documentation
-    state_weights = {"Positive": 0.9, "Neutral": 0.5, "Negative": 0.1}
-    
-    prob_pol = state_weights.get(country_data.get("APV_Pol"), 0.5)
-    prob_rev = state_weights.get(country_data.get("APV_Rev"), 0.5)
-    prob_per = state_weights.get(country_data.get("APV_Per"), 0.5)
-    prob_sub = state_weights.get(country_data.get("APV_Sub"), 0.5)
-    
-    # Aggregate parent policy vector
-    score_governance = (prob_pol + prob_rev + prob_per + prob_sub) / 4
+        <div class="bg-white p-10 rounded-2xl shadow-xl border border-slate-100">
+            <div v-if="currentView === 'welcome'" class="max-w-2xl mx-auto py-6 animate-fade-in text-center">
+                <h2 class="text-4xl font-black text-v4f-neutral mb-2">Welcome to the V4F Audit Tool</h2>
+                <p class="text-sm text-v4f-neutral/80 uppercase tracking-wider font-semibold mb-8">
+                    Part of the Value4Farm Decision Support Framework (Grant No. xxxxxxxxx)
+                </p>
+                
+                <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-left space-y-6 mb-8">
+                    <p class="text-slate-600 leading-relaxed">
+                        This tool assesses the feasibility of combining energy production through <strong>Agrivoltaics and/or Biogas</strong> with food production. It provides a localized multi-criteria analysis based on environmental, financial, agronomic, social, and legislative aspects.
+                    </p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h4 class="font-bold text-v4f-neutral mb-1 text-sm flex items-center gap-2">
+                                <span class="text-v4f-base">✔</span> Purely Informative
+                            </h4>
+                            <p class="text-xs text-slate-500">Calculations rely on scientific research from the Value4Farm project and published data. This tool does not make final decisions for you.</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h4 class="font-bold text-v4f-neutral mb-1 text-sm flex items-center gap-2">
+                                <span class="text-v4f-base">✔</span> Fully Anonymous
+                            </h4>
+                            <p class="text-xs text-slate-500">Your privacy matters. All inputs are processed strictly in real-time to generate your report. No data is saved or stored.</p>
+                        </div>
+                    </div>
+            
+                    <div class="pt-4 border-t border-slate-100">
+                        <h4 class="font-bold text-v4f-neutral mb-3 text-sm uppercase tracking-wide">The 3-Step Transition Framework:</h4>
+                        <ol class="space-y-3 text-sm text-slate-600">
+                            <li class="flex gap-2">
+                                <span class="font-bold text-v4f-neutral">1. Learn:</span> 
+                                <span>Complete the introductory MOOC at <a href="#" class="text-v4f-base underline font-medium">XXXXXX</a> to understand the core concepts.</span>
+                            </li>
+                            <li class="flex gap-2 bg-v4f-base/5 p-2 rounded-lg border border-v4f-base/20">
+                                <span class="font-bold text-v4f-base">2. Audit:</span> 
+                                <span>(Current Step) Evaluate your farm's unique spatial, technical, and resource compatibility.</span>
+                            </li>
+                            <li class="flex gap-2">
+                                <span class="font-bold text-v4f-neutral">3. Transition:</span> 
+                                <span>Access the implementation tool to find actionable deployment paths and local expert help.</span>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <button @click="currentView = 'form'" class="bg-v4f-base hover:opacity-90 text-white px-10 py-4 rounded-xl font-bold shadow-lg transition-all text-xl">
+                    Start Assessment
+                </button>
+            </div>
+            
+            <div v-if="currentView === 'form'">
+                
+                <div v-if="currentSection === 'focus'" class="space-y-8 animate-fade-in">
+                    <div class="flex items-center group relative border-b-2 border-v4f-base pb-2">
+                        <h2 class="text-3xl font-bold text-v4f-neutral">Audit Focus</h2>
+                        <div class="info-group cursor-help text-v4f-base">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="info-tooltip">This choice determines which technical questions follow.</div>
+                        </div>
+                    </div>
+                    <p class="text-slate-500 font-medium">What are you interested in auditing for your farm?</p>
+                    <div class="flex flex-col gap-4">
+                        <button type="button" v-for="focus in ['Agrivoltaics', 'Biogas', 'Both']" :key="focus"
+                                @click="formData.auditFocus = focus"
+                                :class="formData.auditFocus === focus ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                class="p-6 border-2 rounded-xl text-left font-bold transition-all shadow-sm text-lg">
+                            {{ focus }}
+                        </button>
+                    </div>
+                </div>
+                <!-- Section 1: General farm profile -->
+                <div v-if="currentSection === 'farm'" class="space-y-8 animate-fade-in">
+                    <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Your farm</h2>
+                    <p class="text-sm text-slate-500 italic">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore. </p>
+                    
+                    <!-- Country Selection -->
+                    <div class="relative">
+                        <label class="block font-bold text-v4f-neutral mb-2">Country:
+                            <span class="info-group group relative cursor-help text-v4f-base">
+                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div class="info-tooltip">Lorem ipsum dolor sit amet, consectetur adipiscing elit. </div>
+                            </span>
+                        </label>
+                        <input type="text" v-model="searchQuery" @focus="showCountryDropdown = true" @blur="hideDropdownDelay"
+                            placeholder="Start typing or search countries..." 
+                            class="w-full p-4 bg-v4f-bg border border-slate-200 rounded-xl outline-v4f-base font-medium">
+                        <div v-if="showCountryDropdown && filteredCountries.length > 0" 
+                            class="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                            <div v-for="country in filteredCountries" :key="country" @click="selectCountry(country)" 
+                                class="p-3 hover:bg-v4f-base/10 cursor-pointer text-v4f-neutral font-medium transition-colors">
+                                {{ country }}
+                            </div>
+                        </div>
+                    </div>
 
-    # ==========================================
-    # 3. EVALUATE ENERGY POTENTIAL PARENT NODE
-    # ==========================================
-    cf_percentage = float(country_data.get("APV_Cap_Fac") or 12.0)
-    
-    # Engineering Math: P = Area (m2) * (Power Density / 1000) * Coverage Factor
-    area_m2 = land_space * 10000 
-    installed_capacity_kwp = area_m2 * (220 / 1000) * 0.60
-    energy_potential_kwh_kwp = 8760 * (cf_percentage / 100)
-    
-    # Find true conditional probability from CPT sheet based on numerical boundaries
-    score_energy_potential = match_cpt_interval(db.get("APV_Ene_Pot", []), energy_potential_kwh_kwp, "kWh/kWp")
+                    <!-- Farming Activities -->
+                    <div>
+                        <label class="block font-bold text-v4f-neutral mb-3">Which of the following best describes your farming activities? [Select all that apply]
+                            <span class="info-group group relative cursor-help text-v4f-base">
+                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div class="info-tooltip">Lorem ipsum dolor sit amet, consectetur adipiscing elit. </div>
+                            </span>
+                        </label>
+                        <div class="flex flex-col gap-2">
+                            <button v-for="act in activityOptions"
+                                    @click="toggleActivity(act.label)"
+                                    :class="formData.activities.includes(act.label) ? 'bg-v4f-base text-white border-v4f-base' : 'bg-white border-slate-200 text-v4f-neutral hover:border-v4f-base'"
+                                    class="px-6 py-3 border-2 rounded-xl text-left text-sm font-bold transition-all">
+                                {{ act.label }}
+                            </button>
+                        </div>
+                    </div>
 
-    # ==========================================
-    # 4. COMPUTE TECHNICAL FEASIBILITY CHILD NODE
-    # ==========================================
-    # Blending performance (60%) and baseline structural administration framework (40%)
-    final_technical_weight = (score_energy_potential * 0.6) + (score_governance * 0.4)
-    technical_feasibility_score = int(final_technical_weight * 100)
+                    <!-- Farm Ownership -->
+                    <div>
+                        <label class="block font-bold text-v4f-neutral mb-2">How would you describe your relationship with the land you manage?
+                            <span class="info-group group relative cursor-help text-v4f-base">
+                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div class="info-tooltip">Lorem ipsum dolor sit amet, consectetur adipiscing elit. </div>
+                            </span>
+                        </label>
+                        <select v-model="formData.ownership" class="w-full p-4 bg-v4f-bg border border-slate-200 rounded-xl outline-v4f-base font-medium text-slate-700">
+                            <option disabled value="">Select ownership type...</option>
+                            <option value="Own">I own the land that I cultivate.</option>
+                            <option value="Share">I share the ownership of the land that I cultivate.</option>
+                            <option value="Rent">I rent the land that I cultivate.</option>
+                            <option value="Leasehold">I hold the land under a leasehold agreement.</option>
+                        </select>
+                    </div>
 
-    # ==========================================
-    # 5. ASSEMBLE SUMMARY PACKETS & SCORE MAPS
-    # ==========================================
-    feasibility_scores = {
-        "socio_economic": 75,
-        "agronomic": 70,
-        "environmental": 85,
-        "technical": max(15, min(100, technical_feasibility_score))
-    }
-    feasibility_scores["overall"] = int(sum(feasibility_scores.values()) / 4)
+                    <!-- Future Plan -->
+                    <div>
+                        <label class="block font-bold text-v4f-neutral mb-3">Looking ahead, what is the plan for your farm’s future?
+                            <span class="info-group group relative cursor-help text-v4f-base">
+                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <div class="info-tooltip">Lorem ipsum dolor sit amet, consectetur adipiscing elit. </div>
+                            </span>
+                        </label>
+                        <div class="flex flex-col gap-3">
+                            <button v-for="opt in continuityOptions" 
+                                    @click="formData.continuity = opt"
+                                    :class="formData.continuity === opt ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                    class="p-4 border-2 rounded-xl text-left font-bold transition-all shadow-sm">
+                                {{ opt }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-    return {
-        "scores": feasibility_scores,
-        "swot": {
-            "strengths": [
-                f"Dynamic BBN Match: Mapped regional capacity factor of {cf_percentage}% for {location}.",
-                f"High-Density Production: System sizing generates an estimated {round(energy_potential_kwh_kwp, 1)} kWh/kWp."
-            ],
-            "weaknesses": [], "opportunities": [], "threats": []
-        },
-        "recommendations": [f"Target installation blueprint optimized for a peak threshold of {round(installed_capacity_kwp, 1)} kWp."],
-        "pdf": ""
-    }
+                <!-- Section 2: Land Use & Spatial Planning -->
+                <div v-if="currentSection === 'area'" class="space-y-8 animate-fade-in">
+                    <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Land Use & Spatial Planning</h2>
+                    <div>
+                        <label class="block font-bold text-v4f-neutral mb-2">What is the total area of your farm? (Ha)</label>
+                        <input type="number" v-model="formData.totalSize" placeholder="Enter Ha" min="0"
+                            class="w-full p-4 bg-v4f-bg border border-slate-200 rounded-xl outline-v4f-base font-medium">
+                    </div>
+
+                    <div v-if="formData.totalSize > 0" class="bg-v4f-bg p-6 rounded-xl border border-slate-200 space-y-4">
+                        <h3 class="font-bold text-v4f-neutral mb-4 text-xl">Current distribution (Ha):</h3>
+                        
+                        <div class="flex items-center gap-4" v-for="field in filteredLandFields" :key="field.id">
+                            <label class="w-48 font-medium text-slate-700">{{ field.label }}:</label>
+                            <input type="number" v-model="formData[field.id]" placeholder="0" min="0"
+                                class="flex-1 p-3 bg-white border border-slate-200 rounded-lg outline-v4f-base text-right">
+                        </div>
+
+                        <div class="flex items-center gap-4 pt-4 border-t border-slate-200">
+                            <label class="w-48 font-bold text-v4f-neutral">Other land (Forests, etc.):</label>
+                            <div class="flex-1 p-3 bg-slate-100 border border-transparent rounded-lg text-right font-bold text-slate-600">
+                                {{ otherSize }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Resource Use -->
+                <div v-if="currentSection === 'resources'" class="space-y-8 animate-fade-in">
+                    <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Resource Use</h2>
+                    <p class="text-slate-500 mb-6 font-medium">Please provide your estimated annual breakdown details. Check "Don't know" if unsure.</p>
+                    
+                    <div class="space-y-8">
+                        <div v-for="res in resourceConfigs" :key="res.id" 
+                            class="p-6 bg-v4f-bg border border-slate-200 rounded-2xl relative space-y-4">
+                            
+                            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                                <label class="font-bold text-lg text-v4f-neutral flex items-center">
+                                    {{ res.label }} Parameters
+                                    <span class="info-group cursor-help text-v4f-base">
+                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <div class="info-tooltip">{{ res.hint }}</div>
+                                    </span>
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" :id="'dontknow-' + res.id" v-model="formData.resources[res.id].dontKnow"
+                                        @change="handleDontKnowChange(res.id)" class="v4f-checkbox w-5 h-5 text-v4f-base rounded border-slate-300 cursor-pointer">
+                                    <label :for="'dontknow-' + res.id" class="text-sm font-medium text-slate-600 cursor-pointer select-none">Don't know</label>
+                                </div>
+                            </div>
+
+                            <div v-if="!formData.resources[res.id].dontKnow" class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">
+                                        {{ res.labels.total }}
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources[res.id].value" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12" v-html="res.unit"></span>
+                                    </div>
+                                </div>
+                                
+                                <div v-if="res.labels.own">
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">
+                                        {{ res.labels.own }}
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources[res.id].ownGenerated" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12" v-html="res.unit"></span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">
+                                        {{ res.labels.cost }}
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources[res.id].annualBill" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">EUR/yr</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-else class="text-sm italic text-slate-400 p-2">
+                                Resource parameter evaluation skipped.
+                            </div>
+                        </div>
+
+                        <!-- Manure Management Custom Sub-form -->
+                        <div v-if="formData.auditFocus === 'Biogas' || formData.auditFocus === 'Both'" 
+                            class="p-6 bg-v4f-bg border border-slate-200 rounded-2xl relative space-y-4">
+                            
+                            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                                <label class="font-bold text-lg text-v4f-neutral flex items-center">
+                                    Organic Manure Management
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="dontknow-manure" v-model="formData.resources.manure.dontKnow"
+                                        class="v4f-checkbox w-5 h-5 text-v4f-base rounded border-slate-300 cursor-pointer">
+                                    <label for="dontknow-manure" class="text-sm font-medium text-slate-600 cursor-pointer select-none">Don't know</label>
+                                </div>
+                            </div>
+
+                            <div v-if="!formData.resources.manure.dontKnow" class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Used On-Farm</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources.manure.usedOnFarm" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">tonne/yr</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Exported Off-Farm</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources.manure.exportedOffFarm" placeholder="0" min="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">tonne/yr</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Financial Processing Cost</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" v-model="formData.resources.manure.processingCost" placeholder="0"
+                                            class="w-full p-3 border border-slate-300 rounded-lg outline-v4f-base text-right font-medium bg-white">
+                                        <span class="text-xs text-slate-500 font-bold w-12">EUR/yr</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!--AGRIVOLTAICS SECTION START-->
+
+                <div v-if="currentSection === 'agrivoltaics'" class="space-y-10 animate-fade-in">
+                    <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Agrivoltaics Assessment</h2>
+
+                    <section class="space-y-6">
+                        <h3 class="text-xl font-bold text-v4f-base">Section 1: Foundation & Potential</h3>
+                        
+                        <div class="flex items-center justify-between p-4 bg-v4f-bg rounded-xl border border-slate-200">
+                            <label class="font-bold text-v4f-neutral">Do you already have Solar PV?</label>
+                            <div class="flex gap-2">
+                                <button v-for="opt in ['Yes', 'No']" @click="formData.agrivoltaics.hasPanels = opt"
+                                        :class="formData.agrivoltaics.hasPanels === opt ? 'bg-v4f-base text-white' : 'bg-white text-v4f-neutral'"
+                                        class="px-4 py-2 border rounded-lg font-bold transition-all text-sm">{{ opt }}</button>
+                            </div>
+                        </div>
+
+                        <div v-if="formData.agrivoltaics.hasPanels === 'Yes'" class="animate-fade-in">
+                            <label class="block text-sm font-bold text-v4f-neutral mb-2">Total Installed Capacity (kW):</label>
+                            <input type="number" v-model="formData.agrivoltaics.installedCapacity" class="w-full p-3 border rounded-xl">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                            <div>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Estimated land area available (Ha):</label>
+                                <input type="number" v-model="formData.agrivoltaics.landSpace" placeholder="0.0" step="0.1"
+                                    class="w-full p-4 bg-v4f-bg border rounded-xl outline-v4f-base">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Current Land Use of this area:</label>
+                                <select v-model="formData.agrivoltaics.plotLandUse" class="w-full p-4 bg-v4f-bg border rounded-xl outline-v4f-base">
+                                    <option v-for="opt in plotLandUseOptions" :key="opt" :value="opt">{{ opt }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Lay of the Land (Terrain):</label>
+                                <select v-model="formData.agrivoltaics.terrain" class="w-full p-4 bg-v4f-bg border rounded-xl">
+                                    <option v-for="t in terrainOptions" :value="t.value">{{ t.label }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Main Slope Direction:</label>
+                                <select v-model="formData.agrivoltaics.slopeDirection" class="w-full p-4 bg-v4f-bg border rounded-xl">
+                                    <option v-for="s in slopeDirections" :value="s">{{ s }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-v4f-neutral mb-3 text-sm">Are there known underground obstacles? (pipes, rocks, etc.)</label>
+                            <div class="flex gap-2">
+                                <button v-for="o in ['Yes', 'No', 'Unknown']" @click="formData.agrivoltaics.obstacles = o"
+                                        :class="formData.agrivoltaics.obstacles === o ? 'bg-v4f-accent text-white border-v4f-accent' : 'bg-white border-slate-200'"
+                                        class="flex-1 py-3 border-2 rounded-xl font-bold transition-all text-sm">{{ o }}</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section v-if="formData.activities.some(a => a.includes('arable') || a.includes('perennial'))" 
+                            class="space-y-6 pt-6 border-t border-slate-100">
+                        <h3 class="text-xl font-bold text-v4f-base">Section 2: Crop Compatibility & Water</h3>
+                        
+                        <label class="block font-bold text-v4f-neutral text-sm mb-2">Crops intended for Agri-PV plots:</label>
+                        <div class="flex flex-col gap-2 mb-6">
+                            <button v-for="crop in agriCropOptions" 
+                                    @click="toggleSelection(formData.agrivoltaics.currentCrops, crop)"
+                                    :class="formData.agrivoltaics.currentCrops.includes(crop) ? 'bg-v4f-base text-white border-v4f-base' : 'bg-white border-slate-200 text-v4f-neutral'"
+                                    class="px-4 py-2 border-2 rounded-lg text-left text-sm font-medium transition-all">
+                                {{ crop }}
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Current Irrigation:</label>
+                                <select v-model="formData.agrivoltaics.irrigation" class="w-full p-4 bg-v4f-bg border rounded-xl">
+                                    <option v-for="opt in irrigationOptions" :key="opt" :value="opt">{{ opt }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Water Source:</label>
+                                <select v-model="formData.agrivoltaics.waterSource" class="w-full p-4 bg-v4f-bg border rounded-xl">
+                                    <option v-for="opt in waterSourceOptions" :key="opt" :value="opt">{{ opt }}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="space-y-6 pt-6 border-t border-slate-100">
+                        <h3 class="text-xl font-bold text-v4f-base">Section 3: Machinery & Space Constraints</h3>
+                        <p class="text-sm text-slate-500 italic">Tell us about your "widest and tallest" machines to ensure smooth operations.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Max Working Width (m)</label>
+                                <input type="number" v-model="formData.agrivoltaics.maxWidth" placeholder="Meters" step="0.1"
+                                    class="w-full p-3 bg-v4f-bg border rounded-lg outline-v4f-base">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Max Machine Height (m)</label>
+                                <input type="number" v-model="formData.agrivoltaics.maxHeight" placeholder="Meters" step="0.1"
+                                    class="w-full p-3 bg-v4f-bg border rounded-lg outline-v4f-base">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Turning Radius (m)</label>
+                                <input type="number" v-model="formData.agrivoltaics.turningRadius" placeholder="Meters" step="0.1"
+                                    class="w-full p-3 bg-v4f-bg border rounded-lg outline-v4f-base">
+                            </div>
+                        </div>
+                    </section>
+
+                    </div>
+
+
+                <!--BIOGAS SECTION START-->
+
+                <div v-if="currentSection === 'biogas'" class="space-y-10 animate-fade-in">
+                    <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Biogas Assessment</h2>
+
+                    <!-- Section Livestock & Manure Management-->
+                    <section v-if="formData.activities.includes('I raise livestock.')" class="space-y-6">
+                        <h3 class="text-xl font-bold text-v4f-base">Livestock & Manure Management</h3>
+
+                        <label class="block font-bold text-v4f-neutral text-sm">What livestock do you currently keep? (Select all that apply)</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <button v-for="opt in livestockOptions" 
+                                            @click="toggleSelection(formData.biogas.selectedLivestock, opt, 'biogas')"
+                                            :class="formData.biogas.selectedLivestock.includes(opt) ? 'bg-v4f-base text-white border-v4f-base' : 'bg-white border-slate-200 text-v4f-neutral'"
+                                            class="px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all">
+                                        {{ opt }}
+                                    </button>
+                                </div>                       
+
+                        <div v-if="formData.biogas.selectedLivestock.includes('Bovine')" 
+                            class="mt-4 p-4 bg-v4f-base/5 border border-v4f-base/20 rounded-xl animate-fade-in">
+                            <label class="block font-bold text-v4f-neutral text-xs mb-2 uppercase tracking-wide">
+                                Bovine Specifics: Please specify the type of cattle 
+                            </label>
+                            <div class="flex gap-4">
+                                <label v-for="sub in ['Dairy Cows', 'Meat/Beef Cattle']" :key="sub" class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" :value="sub" 
+                                        v-model="formData.biogas.herdDetails['Bovine'].subtype" 
+                                        class="v4f-checkbox w-4 h-4 rounded">
+                                    <span class="text-sm font-medium text-slate-700">{{ sub }}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div v-if="formData.biogas.selectedLivestock.length > 0" class="space-y-4 mt-6">
+                            <label class="block font-bold text-v4f-neutral text-sm mb-2">
+                                Herd Housing & Management
+                            </label>
+                            
+                            <div v-for="type in formData.biogas.selectedLivestock" :key="type" 
+                                 class="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-sm">
+                                
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                                    <span class="font-black text-v4f-neutral text-base flex items-center gap-2">
+                                        <span class="text-v4f-base">●</span> {{ type }}
+                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <label class="text-xs font-bold text-slate-600 uppercase">Number of Animals:</label>
+                                        <input type="number" v-model="formData.biogas.herdDetails[type].count" min="0" placeholder="0"
+                                               class="w-24 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold text-v4f-neutral outline-v4f-base">
+                                    </div>
+                                </div>
+                        
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                                    
+                                    <div>
+                                        <label class="block text-xs font-black uppercase text-slate-500 mb-2">
+                                            When are the animals housed indoors?
+                                        </label>
+                                        
+                                        <div class="flex flex-col gap-2">
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="year-round" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">🏠 Year-Round Indoors (Stable/Confinement)</span>
+                                            </label>
+                        
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="winter" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">❄ Winter Only (Stables in cold months, Pasture in summer)</span>
+                                            </label>
+                        
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="winter-autumn" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">🍂 Winter & Autumn (Extended indoor period)</span>
+                                            </label>
+                        
+                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
+                                                <input type="radio" :name="'housing-'+type" value="pasture" 
+                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
+                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
+                                                <span class="text-sm font-medium text-slate-700">🌳 Year-Round Outdoors (Continuous Pasture)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                        
+                                    <div class="flex flex-col justify-between">
+                                        <div>
+                                            <label class="block text-xs font-black uppercase text-slate-500 mb-2">Manure Collection System</label>
+                                            <select v-model="formData.biogas.manureSystems[type]" 
+                                                    :disabled="formData.biogas.herdDetails[type].housingMode === 'pasture'"
+                                                    :class="formData.biogas.herdDetails[type].housingMode === 'pasture' ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white'"
+                                                    class="w-full p-3 border border-slate-300 rounded-lg text-sm font-medium outline-v4f-base text-slate-700 transition-colors">
+                                                <option v-for="m in manureCollectionOptions" :value="m">{{ m }}</option>
+                                            </select>
+                                        </div>
+                        
+                                        <div v-if="formData.biogas.herdDetails[type].housingMode === 'pasture'" 
+                                             class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 italic mt-4">
+                                            ⚠ Note: If animals are outdoors year-round, collectable manure volumes drop to near zero, significantly impacting baseline biogas potential.
+                                        </div>
+                                    </div>
+                                </div>
+                        
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 2: Residues -->
+                    <section v-if="formData.activities.some(a => a !== 'I raise livestock.')" class="space-y-6 pt-6 border-t border-slate-100">
+                        <h3 class="text-xl font-bold text-v4f-base">Crop Production & Residues</h3>
+                        <label class="block font-bold text-v4f-neutral">Main crops over the last 3 years (select and provide Ha):</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div v-for="crop in agriCropOptions" class="flex items-center gap-3">
+                                <input type="checkbox" :value="crop" v-model="formData.biogas.selectedCrops" class="v4f-checkbox w-5 h-5">
+                                <span class="flex-1 text-sm">{{ crop }}</span>
+                                <input v-if="formData.biogas.selectedCrops.includes(crop)" 
+                                    type="number" placeholder="Ha" 
+                                    v-model="formData.biogas.cropAreas[crop]"
+                                    class="w-20 p-1 border rounded text-right">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 3: Energy & Infrastructure -->
+                    <section class="space-y-6 pt-6 border-t border-slate-100">
+                        <h3 class="text-xl font-bold text-v4f-base">Energy & Infrastructure</h3>
+                        
+                        <div class="space-y-3">
+                            <label class="block font-bold text-v4f-neutral text-sm">
+                                What is your intended pathway for utilizing the generated biogas?
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                
+                                <button type="button" @click="formData.biogas.energy.pathway = 'CHP'"
+                                        :class="formData.biogas.energy.pathway === 'CHP' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <span class="block font-black text-sm mb-1">⚡ Combined Heat & Power (CHP)</span>
+                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Burn gas on-site in a co-generation engine to produce electricity and usable heat.</span>
+                                    </div>
+                                </button>
+                    
+                                <button type="button" @click="formData.biogas.energy.pathway = 'Biomethane'"
+                                        :class="formData.biogas.energy.pathway === 'Biomethane' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <span class="block font-black text-sm mb-1">🔥 Biomethane Upgrading</span>
+                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Purify biogas to grid-quality gas for injection into the gas network or use as transport fuel.</span>
+                                    </div>
+                                </button>
+                    
+                                <button type="button" @click="formData.biogas.energy.pathway = 'Evaluate Both'"
+                                        :class="formData.biogas.energy.pathway === 'Evaluate Both' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
+                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <span class="block font-black text-sm mb-1">📊 Evaluate Both Pathways</span>
+                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Let the audit tool calculate and compare the feasibility metrics for both scenarios.</span>
+                                    </div>
+                                </button>
+                    
+                            </div>
+                        </div>
+                    
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 mb-2">Annual Heat Consumption (kWh/yr):</label>
+                                <input type="number" v-model="formData.biogas.energy.heat" placeholder="e.g., 45000"
+                                       class="w-full p-3 bg-v4f-bg border rounded-xl outline-v4f-base font-medium">
+                                <p v-if="formData.biogas.energy.pathway === 'CHP'" class="text-[11px] text-v4f-neutral mt-1 italic">
+                                    💡 High local heat use improves the efficiency and economic feasibility of a CHP unit.
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 mb-2">Gas grid connection nearby?</label>
+                                <select v-model="formData.biogas.infrastructure.gasGrid" 
+                                        class="w-full p-3 bg-v4f-bg border rounded-xl outline-v4f-base font-medium text-slate-700">
+                                    <option disabled value="">Select status...</option>
+                                    <option value="Yes">Yes, there is a gas pipeline nearby</option>
+                                    <option value="No">No close pipeline connection</option>
+                                    <option value="Unknown">Unknown</option>
+                                </select>
+                                <p v-if="formData.biogas.energy.pathway === 'Biomethane' && formData.biogas.infrastructure.gasGrid === 'No'" 
+                                   class="text-[11px] text-amber-600 mt-1 italic font-medium">
+                                    ⚠ Note: Upgrading to biomethane without grid access requires alternative compression/trucking logistics, which sharply changes project economics.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+                
+                </div> <div class="mt-12 flex justify-between items-center border-t border-slate-100 pt-8">
+                    <button type="button" @click="prevStep" v-if="currentStep > 1" 
+                            class="text-v4f-neutral hover:text-v4f-base font-bold transition-colors flex items-center gap-2">
+                        &larr; Back
+                    </button>
+                    <div v-else></div>
+                    <button type="button" @click="nextStep"
+                            :disabled="!isCurrentStepValid"
+                            :class="!isCurrentStepValid ? 'opacity-50 cursor-not-allowed bg-slate-300 text-slate-500' : 'bg-v4f-accent hover:opacity-90 text-white shadow-lg'"
+                            class="px-12 py-4 rounded-xl font-bold transition-all text-lg">
+                        {{ currentStep === totalSteps ? 'Finalize' : 'Continue' }}
+                    </button>
+                </div>
+
+            </div> <div v-else-if="currentView === 'loading'" class="flex flex-col items-center justify-center py-20 animate-fade-in text-center">                <div class="w-20 h-20 border-4 border-slate-200 border-t-v4f-base rounded-full animate-spin mb-8"></div>
+                <h2 class="text-4xl font-bold text-v4f-neutral mb-3">Calculating...</h2>
+                <p class="text-slate-500 font-medium text-lg">Please wait while we evaluate your farm's potential.</p>
+            </div>
+
+            <div v-else-if="currentView === 'results'" class="space-y-8 animate-fade-in">
+                <div class="flex justify-between items-center border-b-2 border-v4f-base pb-4">
+                    <h2 class="text-3xl font-bold text-v4f-neutral">Assessment Results</h2>
+                    <button @click="downloadStoredPdf" class="bg-v4f-base hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-transform active:scale-95 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                        Download PDF Report
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                        <h3 class="text-sm font-bold text-v4f-neutral uppercase tracking-wider">Farm Summary</h3>
+                        <p class="text-slate-600"><strong>Location:</strong> {{ formData.location }}</p>
+                        <p class="text-slate-600"><strong>Focus:</strong> {{ formData.auditFocus }}</p>
+                        <p class="text-slate-600"><strong>Size:</strong> {{ formData.totalSize }} {{ formData.unit }}</p>
+                    </div>
+                    <div class="p-6 bg-v4f-base/10 border-2 border-v4f-base rounded-2xl flex flex-col items-center justify-center">
+                        <h3 class="text-sm font-bold text-v4f-neutral uppercase tracking-wider mb-1">Overall Feasibility</h3>
+                        <span class="text-5xl font-black text-v4f-base">{{ assessmentResults.scores.overall }}%</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div v-for="key in ['socio_economic', 'agronomic', 'environmental', 'technical']" :key="key" 
+                        class="p-5 bg-white border border-slate-200 rounded-xl text-center shadow-sm flex flex-col justify-between">
+                        <div>
+                            <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-2">{{ key.replace('_', ' ') }}</span>
+                            
+                            <span class="text-3xl font-black text-v4f-base">{{ assessmentResults.scores[key] }}%</span>
+                            
+                            <div class="w-full bg-slate-100 h-1.5 mt-2 rounded-full overflow-hidden">
+                                <div class="bg-v4f-base h-full" :style="{ width: assessmentResults.scores[key] + '%' }"></div>
+                            </div>
+                        </div>
+                
+                        <p class="text-[11px] text-slate-500 font-medium leading-relaxed mt-4 pt-3 border-t border-slate-100 italic">
+                            {{ getScoreExplanation(key, assessmentResults.scores[key]) }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div v-for="(items, type) in assessmentResults.swot" :key="type" class="bg-white p-6">
+                        <h4 class="font-black text-v4f-neutral uppercase text-xs mb-3 flex items-center gap-2">
+                            <span :class="{'text-emerald-500': type === 'strengths', 'text-rose-500': type === 'weaknesses', 'text-v4f-accent': type === 'opportunities', 'text-slate-400': type === 'threats'}">●</span>
+                            {{ type }}
+                        </h4>
+                        <ul class="space-y-2">
+                            <li v-for="item in items" class="text-sm text-slate-500 flex gap-2 italic"><span class="text-v4f-accent">▶</span> "{{ item }}"</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-white border-l-4 border-v4f-accent p-6 shadow-sm rounded-r-xl">
+                    <h3 class="font-bold text-v4f-neutral mb-3 text-lg">Recommendations</h3>
+                    <ul class="space-y-3">
+                        <li v-for="rec in assessmentResults.recommendations" class="flex gap-3 text-slate-600 text-sm"><span class="text-v4f-accent font-bold">▶</span> {{ rec }}</li>
+                    </ul>
+                </div>
+
+                <div class="pt-6 text-center">
+                    <button @click="resetForm" class="text-v4f-neutral hover:text-v4f-base font-bold transition-colors underline decoration-v4f-base/30 underline-offset-4">
+                        Start a New Assessment
+                    </button>
+                </div>
+            </div> </div> </div> <script>
+        const { createApp, ref, computed } = Vue
+
+        createApp({
+            setup() {
+                const currentView = ref('welcome');
+                const currentStep = ref(1);
+                const assessmentResults = ref({ scores: {}, swot: {}, recommendations: [], pdf: '' });
+                
+                const formData = ref({
+                    auditFocus: '',
+                    location: '',
+                    activities: [],
+                    ownership: '',
+                    continuity: '',
+                    totalSize: null,
+                    unit: 'Hectares', 
+                    arable: null,
+                    grassland: null,
+                    perennial: null, 
+                    greenhouses: null, 
+                    resources: {
+                        fertilizer: { value: null, ownGenerated: null, annualBill: null, dontKnow: false },
+                        water: { value: null, dontKnow: false },
+                        electricity: { value: null, ownGenerated: null, annualBill: null, dontKnow: false },
+                        gas: { value: null, ownGenerated: null, annualBill: null, dontKnow: false },
+                        manure: { usedOnFarm: null, exportedOffFarm: null, processingCost: null, dontKnow: false }
+                    },
+                    energy: {
+                        consumption: null,
+                        trend: '',
+                        changePercent: null,
+                        transformerDist: ''
+                    },
+                    agrivoltaics: {
+                        hasPanels: '',
+                        installedCapacity: null, 
+                        landSpace: null,         
+                        plotLandUse: '',         
+                        terrain: '',             
+                        slopeDirection: '',      
+                        soilType: '',
+                        obstacles: '',           
+                        currentCrops: [],
+                        irrigation: '',
+                        waterSource: '',
+                        maxWidth: null,
+                        maxHeight: null,
+                        turningRadius: null
+                    },
+                    biogas: {
+                        selectedLivestock: [],
+                        herdDetails: {}, 
+                        manureSystems: {}, 
+                        storage: {
+                            liquid: { capacity: null, cover: '' },
+                            solid: { capacity: null, cover: '' }
+                        },
+                        selectedCrops: [],
+                        cropAreas: {},
+                        rotation: '',
+                        coverCrops: { grow: false, area: null },
+                        residueManagement: [],
+                        energy: { heat: null, fertilizer: null, pathway: '' },
+                        infrastructure: { gasGrid: '', collaboration: 3 }
+                    }
+                });
+
+                const filteredLandFields = computed(() => {
+                    return landFields.filter(field => {
+                        if (field.id === 'grassland') return formData.value.activities.includes('I raise livestock.');
+                        if (field.id === 'greenhouses') return formData.value.activities.includes('I manage greenhouse cultivation.');
+                        if (field.id === 'arable') return formData.value.activities.includes('I grow arable field crops (e.g., grains, oilseeds, pulses).');
+                        if (field.id === 'perennial') return formData.value.activities.includes('I grow perennial crops (e.g., orchards, vineyards, berries).');
+                        return true;
+                    });
+                });
+
+                const activityOptions = [
+                    { label: 'I grow arable field crops (e.g., grains, oilseeds, pulses).' },
+                    { label: 'I raise livestock.' },
+                    { label: 'I grow perennial crops (e.g., orchards, vineyards, berries).' },
+                    { label: 'I manage greenhouse cultivation.' }
+                ];
+
+                const continuityOptions = [
+                    'A successor has already confirmed they will continue my farming activities',
+                    'I have a formal plan in place to transfer my farm',
+                    'I am not sure yet if someone will take over the farm in the future.',
+                    'This is not applicable to my current situation.'
+                ];
+
+                const landFields = [
+                    { id: 'arable', label: 'Arable Field Crops' },
+                    { id: 'grassland', label: 'Permanent Grassland' },
+                    { id: 'perennial', label: 'Perennial Crops' },
+                    { id: 'greenhouses', label: 'Greenhouses' }
+                ];
+
+                const terrainOptions = [
+                    { label: 'Flat (Slope < 3%)', value: 'Flat' },
+                    { label: 'Gently Sloping (3% – 10%)', value: 'Gently Sloping' },
+                    { label: 'Hilly/Steep (> 10%)', value: 'Hilly' }
+                ];
+
+                const slopeDirections = ['Flat', 'South-facing', 'North-facing', 'East-West', 'Multiple'];
+                const plotLandUseOptions = ['Arable land', 'Permanent Grassland/Pasture', 'Permanent Crops (Orchards/Vineyards)'];
+
+                const agriCropOptions = [
+                    'Cereals (Wheat, Barley, Rye, Oats)',
+                    'Maize (Grain maize, Corn-cob mix)',
+                    'Root/Tuber crops (Sugar beet, Potatoes)',
+                    'Pulses/Legumes (Beans, Peas, Lupins)',
+                    'Industrial crops (Oilseed rape, Sunflower, Hemp)'
+                ];
+
+                const irrigationOptions = ['None', 'Drip', 'Sprinkler', 'Center Pivot'];
+                const waterSourceOptions = ['Well', 'Surface Water', 'Public Supply', 'None'];
+
+                const transformerOptions = ['< 100 meters', '100 – 500 meters', '500m – 1km', '> 1km', 'Unknown'];
+
+                const livestockOptions = [
+                    'Bovine', 'Swine', 'Poultry', 'Sheep & Goats', 'Equidae'
+                ];
+
+                const manureCollectionOptions = [
+                    'Liquid System: slatted floors (slurry)',
+                    'Solid System: straw/bedding (Farmyard Manure)',
+                    'Deep Litter: accumulated bedding',
+                    'Other: vacuum or scraper systems'
+                ];
+
+                const otherSize = computed(() => {
+                    const total = Number(formData.value.totalSize) || 0;
+                    const arable = Number(formData.value.arable) || 0;
+                    const grass = Number(formData.value.grassland) || 0;
+                    const perennial = Number(formData.value.perennial) || 0;
+                    const greenhouse = Number(formData.value.greenhouses) || 0;
+                    return total - (arable + grass + perennial + greenhouse);
+                });
+
+                const totalSteps = computed(() => {
+                    if (formData.value.auditFocus === 'Both') return 6;
+                    if (formData.value.auditFocus === 'Agrivoltaics' || formData.value.auditFocus === 'Biogas') return 5;
+                    return 4;
+                });
+                
+                const toggleSelection = (list, val, section) => {
+                    const i = list.indexOf(val);
+                    if (i > -1) {
+                        list.splice(i, 1);
+                        if (section === 'biogas') delete formData.value.biogas.herdDetails[val];
+                    } else {
+                        list.push(val);
+                        if (section === 'biogas') {
+                            formData.value.biogas.herdDetails[val] = { 
+                                count: 0, 
+                                monthsInside: 12, 
+                                housingMode: 'inside'
+                            };
+                            
+                            if (val === 'Bovine') {
+                                formData.value.biogas.herdDetails[val].subtype = [];
+                            } else {
+                                formData.value.biogas.herdDetails[val].subtype = null;
+                            }
+                        }
+                    }
+                };
+
+                const currentSection = computed(() => {
+                    if (currentStep.value === 1) return 'focus';
+                    if (currentStep.value === 2) return 'farm';
+                    if (currentStep.value === 3) return 'area';
+                    if (currentStep.value === 4) return 'resources';
+                    if (formData.value.auditFocus === 'Both') {
+                        if (currentStep.value === 5) return 'agrivoltaics';
+                        if (currentStep.value === 6) return 'biogas';
+                    } else if (formData.value.auditFocus === 'Agrivoltaics') {
+                        if (currentStep.value === 5) return 'agrivoltaics';
+                    } else if (formData.value.auditFocus === 'Biogas') {
+                        if (currentStep.value === 5) return 'biogas';
+                    }
+                    return 'unknown';
+                });
+
+                const progressPercentage = computed(() => {
+                    if (currentStep.value <= 1) return 0;
+                    const totalProgressSteps = totalSteps.value - 1;
+                    return Math.round(((currentStep.value - 1) / totalProgressSteps) * 100);
+                });
+
+                const isCurrentStepValid = computed(() => {
+                    const section = currentSection.value;
+                    if (section === 'focus') return !!formData.value.auditFocus;
+                    
+                    if (section === 'farm') return !!formData.value.location && 
+                                                formData.value.activities.length > 0 && 
+                                                !!formData.value.ownership && 
+                                                !!formData.value.continuity;
+                    
+                    if (section === 'area') {
+                        const hasTotal = formData.value.totalSize > 0;
+                        const isValidMath = otherSize.value >= 0;
+                        return hasTotal && isValidMath;
+                    }
+                    
+                    if (section === 'resources') {
+                        const resValid = resourceConfigs.value.every(res => {
+                            const r = formData.value.resources[res.id];
+                            return r.dontKnow || (r.value !== null && r.value !== '' && r.annualBill !== null && r.annualBill !== '');
+                        });
+                        
+                        const manureTrack = formData.value.resources.manure;
+                        const manureValid = manureTrack.dontKnow || (formData.value.auditFocus !== 'Biogas' && formData.value.auditFocus !== 'Both') || 
+                                            (manureTrack.usedOnFarm !== null && manureTrack.exportedOffFarm !== null);
+                                            
+                        return resValid && manureValid;
+                    }
+
+                    if (section === 'agrivoltaics') {
+                        const agri = formData.value.agrivoltaics;
+                        const activities = formData.value.activities;
+
+                        const foundationValid = !!agri.hasPanels && 
+                                                agri.landSpace > 0 && 
+                                                !!agri.plotLandUse && 
+                                                !!agri.terrain && 
+                                                !!agri.slopeDirection && 
+                                                !!agri.obstacles &&
+                                                !!agri.turningRadius;
+
+                        const isCropFarmer = activities.some(a => a.includes('arable') || a.includes('perennial'));
+                        const cropsValid = isCropFarmer ? (agri.currentCrops.length > 0 && !!agri.irrigation) : true;
+                        const machineryValid = agri.maxWidth > 0 && agri.maxHeight > 0;
+
+                        return foundationValid && cropsValid && machineryValid;
+                    }
+
+                    if (section === 'biogas') {
+                        const bio = formData.value.biogas;
+                        const bovineNeedsSubtype = bio.selectedLivestock.includes('Bovine') && 
+                                                (!bio.herdDetails['Bovine'].subtype || bio.herdDetails['Bovine'].subtype.length === 0);
+                                                
+                        const hasHeat = bio.energy.heat !== null && bio.energy.heat !== '';
+                        const hasInfrastructure = !!bio.infrastructure.gasGrid;
+                        const hasPathway = !!bio.energy.pathway;
+                        
+                        return hasHeat && hasInfrastructure && hasPathway && !bovineNeedsSubtype;
+                    }
+                    
+                    return true; 
+                });
+
+                const searchQuery = ref('');
+                const showCountryDropdown = ref(false);
+                const euCountries = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden'];
+                const filteredCountries = computed(() => {
+                    if (!searchQuery.value) return euCountries;
+                    return euCountries.filter(country => country.toLowerCase().includes(searchQuery.value.toLowerCase()));
+                });
+                function selectCountry(country) { formData.value.location = country; searchQuery.value = country; showCountryDropdown.value = false; }
+                function hideDropdownDelay() { setTimeout(() => showCountryDropdown.value = false, 200); }
+                function toggleActivity(act) {
+                    const index = formData.value.activities.indexOf(act);
+                    if (index > -1) formData.value.activities.splice(index, 1);
+                    else formData.value.activities.push(act);
+                }
+
+                const baseResourceConfigs = [
+                    { 
+                        id: 'fertilizer', 
+                        label: 'Mineral Fertilizer', 
+                        unit: 'tonne/yr', 
+                        hint: 'Annual mineral fertilizer utilization properties and total expenditure parameters.',
+                        labels: { total: 'Mineral Fertilizer Used', own: null, cost: 'Annual Fertilizer Expense' }
+                    },
+                    { 
+                        id: 'water', 
+                        label: 'Water', 
+                        unit: 'm&sup3;/yr', 
+                        hint: 'Total water consumption including irrigation, livestock drinking water, and cleaning.',
+                        labels: { total: 'Total Water Used', own: null, cost: 'Annual Water Bill' }
+                    }, 
+                    { 
+                        id: 'electricity', 
+                        label: 'Electricity Usage', 
+                        unit: 'kWh/yr', 
+                        hint: 'Annual consumption footprint metrics across production installations.',
+                        labels: { total: 'Total Electricity Used', own: 'Generated On-Farm', cost: 'Annual Electricity Bill' }
+                    },
+                    { 
+                        id: 'gas', 
+                        label: 'Gas Usage', 
+                        unit: 'Nm&sup3;/yr', 
+                        hint: 'Natural gas or LPG consumption profiles across facility workflows.',
+                        labels: { total: 'Total Gas Used', own: 'Generated On-Farm', cost: 'Annual Gas Bill' }
+                    }
+                ];
+                const resourceConfigs = computed(() => {
+                    const focus = formData.value.auditFocus;
+                    if (focus === 'Biogas') return baseResourceConfigs.filter(res => ['fertilizer', 'gas'].includes(res.id));
+                    if (focus === 'Agrivoltaics') return baseResourceConfigs.filter(res => ['water', 'electricity'].includes(res.id));
+                    return baseResourceConfigs;
+                });
+                function handleDontKnowChange(resourceId) {
+                    if (formData.value.resources[resourceId].dontKnow) {
+                        formData.value.resources[resourceId].value = null;
+                        if (formData.value.resources[resourceId].ownGenerated !== undefined) formData.value.resources[resourceId].ownGenerated = null;
+                        formData.value.resources[resourceId].annualBill = null;
+                    }
+                }
+
+                function nextStep() {
+                    if (!isCurrentStepValid.value) return; 
+                    if (currentStep.value < totalSteps.value) currentStep.value++;
+                    else if (currentStep.value === totalSteps.value) finalizeForm();
+                }
+
+                function prevStep() { if (currentStep.value > 1) currentStep.value--; }
+
+                async function finalizeForm() {
+                    currentView.value = 'loading';
+                    try {
+                        const response = await fetch('https://v4f.onrender.com/generate-report', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(formData.value)
+                        });
+                        if (!response.ok) throw new Error('Server error');
+                        const data = await response.json();
+                        assessmentResults.value = data;
+                        currentView.value = 'results';
+                    } catch (error) {
+                        console.error(error);
+                        alert("Server error. Ensure uvicorn is running.");
+                        currentView.value = 'form';
+                    }
+                }
+
+                function resetForm() {
+                    currentView.value = 'form';
+                    currentStep.value = 1;
+                }
+
+                function downloadStoredPdf() {
+                    const link = document.createElement('a');
+                    link.href = `data:application/pdf;base64,${assessmentResults.value.pdf}`;
+                    link.download = `V4F_Audit_Report_${formData.value.location || 'Farm'}.pdf`;
+                    link.click();
+                }
+
+                return { 
+                    currentView, currentStep, currentSection, totalSteps, progressPercentage, 
+                    isCurrentStepValid, formData, searchQuery, showCountryDropdown, 
+                    filteredCountries, selectCountry, hideDropdownDelay, toggleActivity, 
+                    otherSize, resourceConfigs, handleDontKnowChange,
+                    nextStep, prevStep, resetForm, assessmentResults, finalizeForm, 
+                    downloadStoredPdf, terrainOptions,
+                    agriCropOptions, transformerOptions,
+                    activityOptions, 
+                    continuityOptions, 
+                    landFields, toggleSelection, livestockOptions,
+                    manureCollectionOptions, filteredLandFields,
+                    slopeDirections,
+                    plotLandUseOptions, irrigationOptions, waterSourceOptions,
+                    
+                    getScoreExplanation(category, score) {
+                        if (!score) return "No baseline data calculated.";
+                        
+                        const explanations = {
+                            socio_economic: {
+                                high: "High likelihood that the technology is economically beneficial and matches your operational timeline structure.",
+                                moderate: "Viable economic foundations, though long-term tenant structures or scale limitations require careful financial planning.",
+                                low: "Significant business case constraints. Tenure issues or localized scaling dynamics limit secure return on investment."
+                            },
+                            agronomic: {
+                                high: "Excellent crop-to-panel compatibility profile, optimizing microclimatic shielding benefits without disrupting cultivation yields.",
+                                moderate: "Balanced vegetation index; expect moderate shade adaptations or adjustments to seasonal rotation patterns.",
+                                low: "High baseline structural light disruption risks impacting standard yield metrics for sun-dependent crops."
+                            },
+                            environmental: {
+                                high: "Substantial positive lifecycle indicator; high synergy across localized organic inputs and natural resource tracking.",
+                                moderate: "Maintains a neutral to positive ecological baseline profile, aligning with regional circular sustainability goals.",
+                                low: "Low operational resource recovery value. Feedstock limits or layout issues degrade total target offsets."
+                            },
+                            technical: {
+                                high: "Optimal physical engineering baseline. Machinery clearances, soil topography, and aspect features match standard layouts perfectly.",
+                                moderate: "Technically feasible tracking framework, though specific machinery profiles or land slopes require design adjustments.",
+                                low: "Complex engineering barriers detected. Severe terrain slopes, subsurface hazards, or clearance limits restrict deployment."
+                            }
+                        };
+                
+                        let tier = "moderate";
+                        if (score >= 85) tier = "high";
+                        else if (score < 60) tier = "low";
+                
+                        return explanations[category][tier];
+                    }
+                }
+            } 
+        }).mount('#app')
+    </script>
+</body>
+</html>
