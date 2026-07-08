@@ -21,18 +21,23 @@ app.add_middleware(
 
 @app.post("/generate-report")
 async def generate_report(data: dict):
-
+    # ==========================================
     # 1. EXTRACT DATA FROM FRONTEND
-
+    # ==========================================
     focus = data.get("auditFocus", "Not specified")
     location = data.get("location", "Not specified")
     size = float(data.get("totalSize") or 0)
     unit = data.get("unit", "Hectares")
     
+    # Extract dynamic sub-objects from frontend JSON payload
     agri = data.get("agrivoltaics", {})
     biogas = data.get("biogas", {})
     activities = data.get("activities", [])
 
+    # ==========================================
+    # 2. UNIFIED APV & BIOGAS LOOKUP ENGINE
+    # ==========================================
+    # Balanced baselines adjusted for dual-system flexibility
     base_socio = 80          
     base_agronomic = 75       
     base_environmental = 80   
@@ -44,6 +49,7 @@ async def generate_report(data: dict):
     swot_threats = []
     recommendations = []
 
+    # --- Land Ownership Structure (Universal Farm Internal Factor) ---
     ownership = data.get("ownership")
     if ownership == "Own":
         swot_strengths.append("Secure Asset Control: Full land title allows for hassle-free long-term structural zoning and bankable underwriting.")
@@ -53,8 +59,9 @@ async def generate_report(data: dict):
         swot_threats.append("Tenancy Expiry Friction: Lease timelines may not match typical 20-30 year infrastructure lifespans.")
         recommendations.append("Secure an immediate, long-term easement or surface rights extension with the landowner prior to technical applications.")
 
-    #  AGRIVOLTAICS EVALUATION
-
+    # ----------------------------------------------------
+    # SYSTEM 1: DETAILED AGRIVOLTAICS EVALUATION
+    # ----------------------------------------------------
     if focus in ["Agrivoltaics", "Both"]:
         selected_crops = agri.get("currentCrops", [])
         terrain = agri.get("terrain")
@@ -66,7 +73,7 @@ async def generate_report(data: dict):
         irrigation = agri.get("irrigation")
         water_source = agri.get("waterSource")
         
-
+        # Crop-PV Synergy (Agronomic)
         if "I grow perennial crops (e.g., orchards, vineyards, berries)." in activities:
             base_agronomic += 15
             base_technical -= 5  
@@ -83,7 +90,7 @@ async def generate_report(data: dict):
                 swot_weaknesses.append("Crop Light Deficit: Maize/Root crops have high light-saturation points and risk structural microclimate yield reduction.")
                 recommendations.append("Utilize dynamic tracking algorithms that prioritize agricultural solar sharing during peak crop-growth phases.")
 
- 
+        # Irrigation & Water Secondary Logic
         if irrigation in ["Sprinkler", "Center Pivot"]:
             base_technical -= 10
             swot_weaknesses.append(f"Irrigation Collision Risk: Active {irrigation} frameworks require careful spatial coordination to prevent wetting module junctions.")
@@ -95,7 +102,7 @@ async def generate_report(data: dict):
         if water_source == "Public Supply":
             swot_threats.append("Resource Cost Vulnerability: High public water tariff rates degrade long-term agricultural operational margins under panels.")
 
-
+        # Machinery Clearance & Constraints (Technical)
         if max_width > 0:
             if max_width <= 4.5:
                 base_technical += 10
@@ -116,7 +123,7 @@ async def generate_report(data: dict):
             else:
                 swot_strengths.append("Low Structural Profile: Standard height profile permits cost-effective, lower fixed pile assemblies.")
 
-
+        # Topography & Engineering Physical Bottlenecks
         if terrain == "Flat":
             base_technical += 10
             swot_strengths.append("Optimal Topography: Flat plots minimize grading requirements and ensure uniform tracking angles.")
@@ -145,14 +152,16 @@ async def generate_report(data: dict):
                 base_socio += 15
                 swot_opportunities.append(f"Utility-Scale Advantage: Large footprint opens up direct private Corporate Power Purchase Agreements (PPAs).")
 
-    # BIOGAS EVALUATION
-
+    # ----------------------------------------------------
+    # SYSTEM 2: DETAILED BIOGAS EVALUATION
+    # ----------------------------------------------------
     if focus in ["Biogas", "Both"]:
         livestock = biogas.get("selectedLivestock", [])
         pathway = biogas.get("energy", {}).get("pathway")
         gas_grid = biogas.get("infrastructure", {}).get("gasGrid")
         herd_details = biogas.get("herdDetails", {})
 
+        # Calculate rough animal stock baseline
         total_animals = 0
         has_pasture_risk = False
         for animal in livestock:
@@ -161,6 +170,7 @@ async def generate_report(data: dict):
             if details.get("housingMode") == "pasture":
                 has_pasture_risk = True
 
+        # Manure Feedstock Asset Availability
         if len(livestock) > 0 and total_animals > 40:
             base_environmental += 15
             base_socio += 10
@@ -174,6 +184,7 @@ async def generate_report(data: dict):
             base_threats.append("Manure Collection Deficit: Continuous open pasture modes drastically reduce total collectable slurry metrics.")
             recommendations.append("Optimize high-traffic transitional bedding capture mechanics during colder indoor-stabling months.")
 
+        # Pathway vs Infrastructure Logic
         if pathway == "Biomethane":
             if gas_grid == "Yes":
                 swot_opportunities.append("Direct Pipeline Connectivity: Proximity to regional networks unlocks premium biomethane injection tariffs.")
@@ -184,13 +195,17 @@ async def generate_report(data: dict):
         elif pathway == "CHP":
             swot_opportunities.append("Thermal Offset Efficiency: Local cogeneration policies support direct district or process facility heating loops.")
 
+    # ----------------------------------------------------
     # CROSS-SYSTEM SYNERGY (Only triggers if user picks "Both")
+    # ----------------------------------------------------
     if focus == "Both":
         base_environmental += 10
         swot_opportunities.append("Integrated Microgrid Synergy: APV electrical production can directly power biogas digester auxiliary pumping tools.")
         recommendations.append("Incorporate a centralized battery storage system to buffer daytime solar spikes and power overnight anaerobic mixers.")
 
-    # DYNAMIC FILLER (Ensures exactly 3 unique rows)
+    # ----------------------------------------------------
+    # DYNAMIC FILLER AND PADDING ENGINE (Ensures exactly 3 unique rows)
+    # ----------------------------------------------------
     backup_strengths = [
         "Data Sovereignty: Real-time calculation keeps internal farm metrics fully localized and anonymous.",
         "Systemic Versatility: Multi-criteria baseline aligns with Value4Farm framework research.",
@@ -247,7 +262,9 @@ async def generate_report(data: dict):
         "threats": swot_threats[:3]
     }
 
+    # ==========================================
     # 3. DEFINE THE HTML TEMPLATE 
+    # ==========================================
     html_template = """
     <!DOCTYPE html>
     <html>
@@ -336,7 +353,9 @@ async def generate_report(data: dict):
     </html>
     """
 
+    # ==========================================
     # 4. RENDER HTML AND CONVERT TO PDF
+    # ==========================================
     template = Template(html_template)
     rendered_html = template.render(
         loc=location,
