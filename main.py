@@ -1,272 +1,264 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.factors.discrete import TabularCPD
+from pgmpy.inference import VariableElimination
 from weasyprint import HTML
 from jinja2 import Template
+import pandas as pd
+import numpy as np
 import base64
+import os
 
 app = FastAPI()
 
-@app.get("/")
-async def root():
-    return {"message": "V4F Backend is online!"}
-
-# Crucial for frontend-backend communication
+# Enable CORS for frontend communication across different origins/domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Render paths are relative to the root directory where the application runs
+EXCEL_PATH = "APV_DST (Clean).xlsx"
+
+# Global placeholders for startup caching
+df_main, df_cro_yld, df_wat_dem = None, None, None
+bbn_model = None
+
+@app.on_event("startup")
+def initialize_system():
+    """Caches Excel matrices and initializes the network graph structure once on server boot."""
+    global df_main, df_cro_yld, df_wat_dem, bbn_model
+    
+    if not os.path.exists(EXCEL_PATH):
+        raise FileNotFoundError(f"Missing database dependency asset: {EXCEL_PATH}")
+        
+    df_main = pd.read_excel(EXCEL_PATH, sheet_name='APV_Main')
+    df_cro_yld = pd.read_excel(EXCEL_PATH, sheet_name='APV_Cro_Yld')
+    df_wat_dem = pd.read_excel(EXCEL_PATH, sheet_name='APV_Wat_Dem')
+    
+    # Instantiate the network configuration graph
+    model = DiscreteBayesianNetwork([
+        ('APV_Pol', 'Governance'), ('APV_Per', 'Governance'), ('APV_Sub', 'Governance'), ('APV_Rev', 'Governance'),
+        ('Governance', 'Technical_Feasibility'), ('Energy_Potential', 'Technical_Feasibility'),
+        ('Economic_Potential', 'Economic_Feasibility'), ('APV_Rev', 'Economic_Feasibility'),
+        ('Visual_Impact', 'Social_Feasibility'),
+        ('Crop_Yield_Impact', 'Agronomic_Feasibility'), ('Water_Demand_Impact', 'Agronomic_Feasibility'), ('Machinery_Compatibility', 'Agronomic_Feasibility'),
+        ('Environmental_Potential', 'Environmental_Feasibility'),
+        
+        # Integration parameters
+        ('Technical_Feasibility', 'Overall_Feasibility'),
+        ('Economic_Feasibility', 'Overall_Feasibility'),
+        ('Social_Feasibility', 'Overall_Feasibility'),
+        ('Agronomic_Feasibility', 'Overall_Feasibility'),
+        ('Environmental_Feasibility', 'Overall_Feasibility'),
+        ('Land_Ownership', 'Overall_Feasibility'),
+        ('Successor_Planning', 'Overall_Feasibility')
+    ])
+
+    # Assign core static distribution states
+    cpd_pol = TabularCPD('APV_Pol', 3, [[0.33], [0.34], [0.33]])
+    cpd_per = TabularCPD('APV_Per', 3, [[0.33], [0.34], [0.33]])
+    cpd_sub = TabularCPD('APV_Sub', 3, [[0.33], [0.34], [0.33]])
+    cpd_rev = TabularCPD('APV_Rev', 3, [[0.33], [0.34], [0.33]])
+    cpd_ene = TabularCPD('Energy_Potential', 3, [[0.33], [0.34], [0.33]])
+    cpd_eco = TabularCPD('Economic_Potential', 3, [[0.33], [0.34], [0.33]])
+    cpd_vis = TabularCPD('Visual_Impact', 5, [[0.2], [0.2], [0.2], [0.2], [0.2]])
+    cpd_cyi = TabularCPD('Crop_Yield_Impact', 3, [[0.33], [0.34], [0.33]])
+    cpd_wdi = TabularCPD('Water_Demand_Impact', 3, [[0.33], [0.34], [0.33]])
+    cpd_mac = TabularCPD('Machinery_Compatibility', 3, [[0.33], [0.34], [0.33]])
+    cpd_env = TabularCPD('Environmental_Potential', 3, [[0.33], [0.34], [0.33]])
+    cpd_own = TabularCPD('Land_Ownership', 3, [[0.33], [0.34], [0.33]])
+    cpd_suc = TabularCPD('Successor_Planning', 3, [[0.33], [0.34], [0.33]])
+
+    # Build conditional probability tables dynamically
+    gov_matrix = []
+    for p in [0,1,2]:
+        for pe in [0,1,2]:
+            for s in [0,1,2]:
+                for r in [0,1,2]:
+                    avg = (p+pe+s+r)/8.0
+                    gov_matrix.append([1.0-avg, avg*0.4, avg*0.6])
+    cpd_gov = TabularCPD('Governance', 3, np.array(gov_matrix).T.tolist(), evidence=['APV_Pol', 'APV_Per', 'APV_Sub', 'APV_Rev'], evidence_card=[3,3,3,3])
+
+    tech_matrix = []
+    for g in [0,1,2]:
+        for e in [0,1,2]:
+            combined = (g+e)/4.0
+            tech_matrix.append([1.0-combined, combined*0.3, combined*0.7])
+    cpd_tech = TabularCPD('Technical_Feasibility', 3, np.array(tech_matrix).T.tolist(), evidence=['Governance', 'Energy_Potential'], evidence_card=[3,3])
+
+    eco_matrix = []
+    for econ in [0,1,2]: 
+        for rev in [0,1,2]:  
+            combined = (econ+rev)/4.0
+            eco_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+    cpd_eco_feas = TabularCPD('Economic_Feasibility', 3, np.array(eco_matrix).T.tolist(), evidence=['Economic_Potential', 'APV_Rev'], evidence_card=[3,3])
+
+    soc_matrix = []
+    for vis in [0,1,2,3,4]: 
+        social_score = 1.0 - (vis/4.0) 
+        soc_matrix.append([1.0-social_score, social_score*0.3, social_score*0.7])
+    cpd_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(soc_matrix).T.tolist(), evidence=['Visual_Impact'], evidence_card=[5])
+
+    agro_matrix = []
+    for yld in [0,1,2]:    
+        for wat in [0,1,2]:  
+            for mac in [0,1,2]: 
+                combined = (yld+wat+mac)/6.0
+                agro_matrix.append([1.0-combined, combined*0.3, combined*0.7])
+    cpd_agro_feas = TabularCPD('Agronomic_Feasibility', 3, np.array(agro_matrix).T.tolist(), evidence=['Crop_Yield_Impact', 'Water_Demand_Impact', 'Machinery_Compatibility'], evidence_card=[3,3,3])
+
+    env_matrix = []
+    for env_pot in [0,1,2]:
+        combined = env_pot/2.0
+        env_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+    cpd_env_feas = TabularCPD('Environmental_Feasibility', 3, np.array(env_matrix).T.tolist(), evidence=['Environmental_Potential'], evidence_card=[3])
+
+    overall_matrix = []
+    for t in [0,1,2]:      
+        for ec in [0,1,2]: 
+            for s in [0,1,2]:  
+                for a in [0,1,2]:  
+                    for en in [0,1,2]: 
+                        for o in [0,1,2]:  
+                            for su in [0,1,2]: 
+                                score = (t*2 + ec*2.5 + s*1.2 + a*1.5 + en*1.5 + o*1.5 + su*1.3) / 23.0
+                                overall_matrix.append([1.0 - score, score * 0.25, score * 0.75])
+                                
+    cpd_overall = TabularCPD('Overall_Feasibility', 3, np.array(overall_matrix).T.tolist(),
+                             evidence=['Technical_Feasibility', 'Economic_Feasibility', 'Social_Feasibility', 
+                                       'Agronomic_Feasibility', 'Environmental_Feasibility', 'Land_Ownership', 'Successor_Planning'],
+                             evidence_card=[3, 3, 3, 3, 3, 3, 3])
+
+    model.add_cpds(cpd_pol, cpd_per, cpd_sub, cpd_rev, cpd_ene, cpd_eco, cpd_vis, cpd_cyi, cpd_wdi, cpd_mac, cpd_env, cpd_own, cpd_suc,
+                   cpd_gov, cpd_tech, cpd_eco_feas, cpd_soc_feas, cpd_agro_feas, cpd_env_feas, cpd_overall)
+    model.check_model()
+    bbn_model = model
+
 @app.post("/generate-report")
 async def generate_report(data: dict):
-    # ==========================================
-    # 1. EXTRACT DATA FROM FRONTEND
-    # ==========================================
-    focus = data.get("auditFocus", "Not specified")
-    location = data.get("location", "Not specified")
-    size = float(data.get("totalSize") or 0)
-    unit = data.get("unit", "Hectares")
+    # Safe Extraction of Vue Frontend Payload Structures
+    country = data.get("location", "Austria")
+    ownership = data.get("ownership", "Own")
+    continuity = data.get("continuity", "")
     
-    # Extract dynamic sub-objects from frontend JSON payload
     agri = data.get("agrivoltaics", {})
-    biogas = data.get("biogas", {})
-    activities = data.get("activities", [])
+    available_ha = float(agri.get("landSpace") or 2.5)
+    machinery_height = float(agri.get("maxHeight") or 2.2)
+    crops_list = agri.get("currentCrops", [])
+    crop_choice = crops_list[0] if crops_list else "Cereals"
+    
+    resources = data.get("resources", {})
+    user_electricity_usage = float(resources.get("electricity", {}).get("value") or 50000)
 
-    # ==========================================
-    # 2. UNIFIED APV & BIOGAS LOOKUP ENGINE
-    # ==========================================
-    # Balanced baselines adjusted for dual-system flexibility
-    base_socio = 80          
-    base_agronomic = 75       
-    base_environmental = 80   
-    base_technical = 70       
+    # Database matching checks
+    country_row = df_main[df_main['Country'].str.lower() == country.lower()]
+    if country_row.empty:
+        raise HTTPException(status_code=400, detail=f"Country '{country}' not found in configuration matrix.")
 
-    swot_strengths = []
-    swot_weaknesses = []
-    swot_opportunities = []
-    swot_threats = []
-    recommendations = []
+    evidence = {}
+    
+    # 1. GOVERNANCE EVIDENCE MAP
+    state_map = {"Negative": 0, "Neutral": 1, "Positive": 2}
+    evidence['APV_Pol'] = state_map.get(country_row['APV_Pol'].values[0], 1)
+    evidence['APV_Per'] = state_map.get(country_row['APV_Per'].values[0], 1)
+    evidence['APV_Sub'] = state_map.get(country_row['APV_Sub'].values[0], 1)
+    evidence['APV_Rev'] = state_map.get(country_row['APV_Rev'].values[0], 1)
 
-    # --- Land Ownership Structure (Universal Farm Internal Factor) ---
-    ownership = data.get("ownership")
-    if ownership == "Own":
-        swot_strengths.append("Secure Asset Control: Full land title allows for hassle-free long-term structural zoning and bankable underwriting.")
-    else:
-        base_socio -= 15
-        swot_weaknesses.append("Contractual Bottleneck: Land lease or rental status limits long-term collateral asset assignment options.")
-        swot_threats.append("Tenancy Expiry Friction: Lease timelines may not match typical 20-30 year infrastructure lifespans.")
-        recommendations.append("Secure an immediate, long-term easement or surface rights extension with the landowner prior to technical applications.")
+    # 2. CLIMATE PROFILE DISCRETIZATION
+    capacity_factor_raw = float(country_row['APV_Cap_Fac'].values[0])
+    if capacity_factor_raw < 12.0: climate_column = "Climate 1 (<750 W/m²)"
+    elif 12.0 <= capacity_factor_raw < 14.5: climate_column = "Climate 2 (750–1099 W/m²)"
+    elif 14.5 <= capacity_factor_raw < 16.5: climate_column = "Climate 3 (1100–1749 W/m²)"
+    else: climate_column = "Climate 4 (>1750 W/m²)"
 
-    # ----------------------------------------------------
-    # SYSTEM 1: DETAILED AGRIVOLTAICS EVALUATION
-    # ----------------------------------------------------
-    if focus in ["Agrivoltaics", "Both"]:
-        selected_crops = agri.get("currentCrops", [])
-        terrain = agri.get("terrain")
-        slope_dir = agri.get("slopeDirection")
-        max_width = float(agri.get("maxWidth") or 0)
-        max_height = float(agri.get("maxHeight") or 0)
-        obstacles = agri.get("obstacles")
-        land_space = float(agri.get("landSpace") or 0)
-        irrigation = agri.get("irrigation")
-        water_source = agri.get("waterSource")
-        
-        # Crop-PV Synergy (Agronomic)
-        if "I grow perennial crops (e.g., orchards, vineyards, berries)." in activities:
-            base_agronomic += 15
-            base_technical -= 5  
-            swot_strengths.append("High Crop-PV Synergy: Perennial crops/berries benefit immensely from modular shade and microclimate tracking.")
-            swot_opportunities.append("Premium APV Subsidies: High-clearance orchard systems qualify for top-tier European dual-use grants.")
-            recommendations.append("Prioritize overhead, semi-transparent glass-glass solar configurations to maintain appropriate crop light levels.")
-        elif "I grow arable field crops (e.g., grains, oilseeds, pulses)." in activities:
-            base_agronomic -= 5  
-            swot_strengths.append("Broadacre Flexibility: Large uniform plots simplify layout planning for standard row tracking configurations.")
-            swot_opportunities.append("Large-Scale Generation: Wide rows allow high-capacity bifacial vertical arrays, maximizing peak pricing markets.")
-            
-            if any(c for c in selected_crops if "Root" in c or "Maize" in c):
-                base_agronomic -= 10
-                swot_weaknesses.append("Crop Light Deficit: Maize/Root crops have high light-saturation points and risk structural microclimate yield reduction.")
-                recommendations.append("Utilize dynamic tracking algorithms that prioritize agricultural solar sharing during peak crop-growth phases.")
+    # 3. TECHNICAL ENERGY PREDICTIONS
+    installed_capacity_kwp = (available_ha * 10000) * 0.22 * 0.6
+    annual_energy_production_kwh = installed_capacity_kwp * 8760 * (capacity_factor_raw / 100.0)
+    specific_yield = annual_energy_production_kwh / installed_capacity_kwp if installed_capacity_kwp > 0 else 0
+    evidence['Energy_Potential'] = 0 if specific_yield < 1000 else (1 if specific_yield < 1400 else 2)
 
-        # Irrigation & Water Secondary Logic
-        if irrigation in ["Sprinkler", "Center Pivot"]:
-            base_technical -= 10
-            swot_weaknesses.append(f"Irrigation Collision Risk: Active {irrigation} frameworks require careful spatial coordination to prevent wetting module junctions.")
-            swot_threats.append("Operational Overhead: High overhead tracking infrastructure is required to clear tall physical sprayers.")
-            recommendations.append("Evaluate a sub-canopy transition to drip irrigation to enhance layout efficiency and water savings.")
-        elif irrigation == "None":
-            swot_opportunities.append("Microclimate Micro-saving: Reduced solar evaporation under panels can naturally optimize soil moisture tracking.")
+    # 4. ECONOMIC RETURNING RATIOS
+    lifecycle_cost = installed_capacity_kwp * 1000 * 1.125
+    actual_kwh_offset = min(annual_energy_production_kwh * 0.80, user_electricity_usage)
+    electricity_price_kwh = float(country_row['Ele_Cos'].values[0]) / 100
+    lifecycle_savings = actual_kwh_offset * electricity_price_kwh * 25
+    roi = ((lifecycle_savings - lifecycle_cost) / lifecycle_cost) * 100 if lifecycle_cost > 0 else 0
+    evidence['Economic_Potential'] = 0 if roi < -25 else (1 if roi < 50 else 2)
 
-        if water_source == "Public Supply":
-            swot_threats.append("Resource Cost Vulnerability: High public water tariff rates degrade long-term agricultural operational margins under panels.")
+    # 5. SOCIAL PROFILE IMPRESSION INDEX
+    evidence['Visual_Impact'] = min(4, int(available_ha // 2))
 
-        # Machinery Clearance & Constraints (Technical)
-        if max_width > 0:
-            if max_width <= 4.5:
-                base_technical += 10
-                swot_strengths.append(f"Compact Operations: Machinery width ({max_width}m) matches optimized high-density row layouts.")
-            elif max_width > 4.5 and max_width <= 9.0:
-                swot_strengths.append(f"Standard Clearance: Row configuration fits integer multiples of your {max_width}m machine cycles.")
-                recommendations.append(f"Design row interspaces at exactly {round(max_width + 0.8, 1)}m to maintain an operational safety margin.")
-            else:
-                base_technical -= 15
-                swot_threats.append(f"Extreme Machine Footprint: Massive machinery width ({max_width}m) forces ultra-wide rows, reducing solar density.")
-                recommendations.append("Evaluate whether a dedicated smaller tractor implement fleet is viable to protect target solar capacity.")
+    # 6. AGRONOMIC CONSTRAINTS MATCHING
+    crop_match = df_cro_yld[df_cro_yld['Crop Category'].str.lower().str.contains(crop_choice.lower()[:5])]
+    raw_yield_impact = crop_match[climate_column].values[0] if not crop_match.empty else "Neutral"
+    raw_water_impact = df_wat_dem[climate_column].values[0]
+    
+    descriptor_map = {"Negative": 0, "Slightly Negative": 0, "Neutral": 1, "Slightly Positive": 2, "Positive": 2, "Very positive": 2}
+    evidence['Crop_Yield_Impact'] = descriptor_map.get(raw_yield_impact, 1)
+    evidence['Water_Demand_Impact'] = descriptor_map.get(raw_water_impact, 1)
+    evidence['Machinery_Compatibility'] = 2 if machinery_height < 2.0 else (1 if machinery_height <= 2.5 else 0)
 
-        if max_height > 0:
-            if max_height >= 3.8:
-                base_technical -= 15
-                swot_weaknesses.append(f"Elevated Overhead Risk: High machinery clearance requirements ({max_height}m) demand heavy steel substructures, spiking CAPEX.")
-                recommendations.append(f"Specify a minimum pile clearance height of {round(max_height + 0.5, 1)}m to eliminate field turnaround collision risks.")
-            else:
-                swot_strengths.append("Low Structural Profile: Standard height profile permits cost-effective, lower fixed pile assemblies.")
+    # 7. ENVIRONMENTAL FOOTPRINT ADJUSTMENTS
+    net_impact = ((annual_energy_production_kwh * 20.0) - (actual_kwh_offset * float(country_row['Gri_Car'].values[0]))) / annual_energy_production_kwh
+    evidence['Environmental_Potential'] = 0 if net_impact > 10.0 else (1 if -10.0 <= net_impact <= 10.0 else 2)
 
-        # Topography & Engineering Physical Bottlenecks
-        if terrain == "Flat":
-            base_technical += 10
-            swot_strengths.append("Optimal Topography: Flat plots minimize grading requirements and ensure uniform tracking angles.")
-        elif terrain == "Hilly":
-            base_technical -= 20
-            swot_weaknesses.append("Topographic Constraints: Slope variations (>10%) complicate mechanical single-axis tracker engineering.")
-            recommendations.append("Deploy string-level maximum power point trackers (MPPT) to mitigate uneven hill shading patterns.")
+    # 8. STRUCTURAL LAND TIMELINES
+    evidence['Land_Ownership'] = 2 if ownership == "Own" else (1 if "Share" in ownership or "Lease" in ownership else 0)
+    evidence['Successor_Planning'] = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
 
-        if slope_dir in ["South-facing", "East-West"]:
-            base_technical += 10
-            swot_strengths.append(f"Ideal Land Aspect: {slope_dir} orientation guarantees highly efficient production yield generation profiles.")
-        elif slope_dir == "North-facing":
-            base_technical -= 15
-            swot_threats.append("Sub-optimal Microclimate: North-facing terrain coupled with panels risks creating over-chilled, damp crop conditions.")
+    # --- INFERENCE BBN GRAPH COMPUTING ENGINE ---
+    inference = VariableElimination(bbn_model)
+    tech = inference.query(variables=['Technical_Feasibility'], evidence=evidence)
+    eco = inference.query(variables=['Economic_Feasibility'], evidence=evidence)
+    soc = inference.query(variables=['Social_Feasibility'], evidence=evidence)
+    agro = inference.query(variables=['Agronomic_Feasibility'], evidence=evidence)
+    env = inference.query(variables=['Environmental_Feasibility'], evidence=evidence)
+    overall = inference.query(variables=['Overall_Feasibility'], evidence=evidence)
 
-        if obstacles == "Yes":
-            base_technical -= 10
-            swot_weaknesses.append("Subsurface Hazards: Documented underground obstructions mean ramming piles could damage infrastructure or fail depth tests.")
-            recommendations.append("Budget for pre-drilling validation or concrete shoe foundations rather than direct structural pile-driving.")
-
-        if land_space > 0:
-            if land_space < 2.0:
-                base_socio -= 10
-                swot_weaknesses.append(f"Scaling Bottleneck: Small available area ({land_space} Ha) struggles to absorb fixed substation grid-entry costs.")
-            elif land_space >= 10.0:
-                base_socio += 15
-                swot_opportunities.append(f"Utility-Scale Advantage: Large footprint opens up direct private Corporate Power Purchase Agreements (PPAs).")
-
-    # ----------------------------------------------------
-    # SYSTEM 2: DETAILED BIOGAS EVALUATION
-    # ----------------------------------------------------
-    if focus in ["Biogas", "Both"]:
-        livestock = biogas.get("selectedLivestock", [])
-        pathway = biogas.get("energy", {}).get("pathway")
-        gas_grid = biogas.get("infrastructure", {}).get("gasGrid")
-        herd_details = biogas.get("herdDetails", {})
-
-        # Calculate rough animal stock baseline
-        total_animals = 0
-        has_pasture_risk = False
-        for animal in livestock:
-            details = herd_details.get(animal, {})
-            total_animals += int(details.get("count") or 0)
-            if details.get("housingMode") == "pasture":
-                has_pasture_risk = True
-
-        # Manure Feedstock Asset Availability
-        if len(livestock) > 0 and total_animals > 40:
-            base_environmental += 15
-            base_socio += 10
-            swot_strengths.append(f"High Manure Asset Volumetrics: Local herd headcount ({total_animals}) secures a reliable, consistent biomethane supply.")
-            swot_opportunities.append("Circular Economy Arbitrage: Capitalize on localized organic nutrient closed-loops, replacing chemical fertilizers.")
-        else:
-            base_environmental -= 10
-            swot_weaknesses.append("Feedstock Limitation: Low on-site animal count limits continuous daily anaerobic organic loading capability.")
-
-        if has_pasture_risk:
-            base_threats.append("Manure Collection Deficit: Continuous open pasture modes drastically reduce total collectable slurry metrics.")
-            recommendations.append("Optimize high-traffic transitional bedding capture mechanics during colder indoor-stabling months.")
-
-        # Pathway vs Infrastructure Logic
-        if pathway == "Biomethane":
-            if gas_grid == "Yes":
-                swot_opportunities.append("Direct Pipeline Connectivity: Proximity to regional networks unlocks premium biomethane injection tariffs.")
-            else:
-                base_technical -= 25
-                swot_threats.append("Logistical Bottleneck: Lack of close gas grid infrastructure forces high virtual compressed trucking transport costs.")
-                recommendations.append("Pivot technical focus toward local grid-tied Combined Heat & Power (CHP) generating systems.")
-        elif pathway == "CHP":
-            swot_opportunities.append("Thermal Offset Efficiency: Local cogeneration policies support direct district or process facility heating loops.")
-
-    # ----------------------------------------------------
-    # CROSS-SYSTEM SYNERGY (Only triggers if user picks "Both")
-    # ----------------------------------------------------
-    if focus == "Both":
-        base_environmental += 10
-        swot_opportunities.append("Integrated Microgrid Synergy: APV electrical production can directly power biogas digester auxiliary pumping tools.")
-        recommendations.append("Incorporate a centralized battery storage system to buffer daytime solar spikes and power overnight anaerobic mixers.")
-
-    # ----------------------------------------------------
-    # DYNAMIC FILLER AND PADDING ENGINE (Ensures exactly 3 unique rows)
-    # ----------------------------------------------------
-    backup_strengths = [
-        "Data Sovereignty: Real-time calculation keeps internal farm metrics fully localized and anonymous.",
-        "Systemic Versatility: Multi-criteria baseline aligns with Value4Farm framework research.",
-        "Resource Baselines: Existing infrastructure supports clean structural transformation loops."
-    ]
-    backup_weaknesses = [
-        "CapEx Inertia: High upfront development cost profiles require secondary investment validation.",
-        "Grid Headroom Constraints: Local network connection capacities require formal verification.",
-        "Zoning Friction: Transitioning agricultural plots to dual-use requires municipal structural authorization."
-    ]
-    backup_opportunities = [
-        "Carbon Offset Valuation: Earn regional ecosystem credits via dual-use land execution.",
-        "Energy Independence: Stabilize localized operational buffers against volatile utility markets.",
-        "Decarbonization Subsidies: Unlock targeted EU sustainable agricultural transition funds."
-    ]
-    backup_threats = [
-        "Regulatory Volatility: Shifts in agricultural cross-compliance tracking parameters could impact targets.",
-        "Climatic Variances: Sudden extreme weather trends affect historical solar irradiation projections.",
-        "Market Tariff Shifts: Unpredictable changes in feed-in pricing rules change expected ROI curves."
-    ]
-
-    for item in backup_strengths:
-        if len(swot_strengths) >= 3: break
-        if item not in swot_strengths: swot_strengths.append(item)
-
-    for item in backup_weaknesses:
-        if len(swot_weaknesses) >= 3: break
-        if item not in swot_weaknesses: swot_weaknesses.append(item)
-
-    for item in backup_opportunities:
-        if len(swot_opportunities) >= 3: break
-        if item not in swot_opportunities: swot_opportunities.append(item)
-
-    for item in backup_threats:
-        if len(swot_threats) >= 3: break
-        if item not in swot_threats: swot_threats.append(item)
-
-    if not recommendations: 
-        recommendations.append("Initiate a preliminary site coordination brief with a Value4Farm advisory team member.")
-
-    # Keep scores strictly bounded between 15% and 100%
+    # Fixed formatting keys strictly maps payload data properties expected by index.html
     feasibility_scores = {
-        "socio_economic": max(15, min(100, base_socio)),
-        "agronomic": max(15, min(100, base_agronomic)),
-        "environmental": max(15, min(100, base_environmental)),
-        "technical": max(15, min(100, base_technical))
-    }
-    feasibility_scores["overall"] = int(sum(feasibility_scores.values()) / 4)
+            "overall": int(overall.values[2] * 100),
+            "technical": int(tech.values[2] * 100),
+            "economic": int(eco.values[2] * 100),
+            "social": int(soc.values[2] * 100),
+            "agronomic": int(agro.values[2] * 100),
+            "environmental": int(env.values[2] * 100)
+        }
 
-    swot_analysis = {
-        "strengths": swot_strengths[:3],
-        "weaknesses": swot_weaknesses[:3],
-        "opportunities": swot_opportunities[:3],
-        "threats": swot_threats[:3]
+    # Generate Dynamic Contextual SWOT Framework
+    swot = {
+        "strengths": [
+            f"High Local Solar Density footprint matching a calculated system sizing scale of {round(installed_capacity_kwp, 1)} kWp.",
+            "Strong institutional alignment observed relative to national agricultural structural agendas."
+        ],
+        "weaknesses": [
+            f"Machinery spatial adjustments needed for operations above {machinery_height} meters.",
+            "Longer capital amortization terms based on specific local grid utility structures."
+        ],
+        "opportunities": [
+            "Integrated Microgrid Synergy: Stabilizing operational margins against structural utility rate variations.",
+            "Dual land-use optimization allowing shared yield preservation under fluctuating solar weather patterns."
+        ],
+        "threats": [
+            "Zoning Policy friction risks depending on evolving municipal network compliance frameworks.",
+            "Interconnection scheduling volatility during peak structural grid connection updates."
+        ]
     }
 
-    # ==========================================
-    # 3. DEFINE THE HTML TEMPLATE 
-    # ==========================================
+    # Placeholder dynamic recommendations (TBA placeholders)
+    recommendations = [
+        "Prioritize semi-transparent tracking module positions to optimize under-canopy crop light metrics.",
+        "Assess utility sub-station distances to minimize balance-of-system cost overruns.",
+        "[TBA Recommendation 3 - Structural optimization strategies under discussion]"
+    ]
+
+    # --- EMBEDDED DYNAMIC HTML-TO-PDF STRUCTURAL ENGINE ---
     html_template = """
-    <!DOCTYPE html>
     <html>
     <head>
         <style>
@@ -274,22 +266,18 @@ async def generate_report(data: dict):
             body { font-family: 'Helvetica', sans-serif; color: #74776A; line-height: 1.4; }
             h1 { color: #95C11F; margin-bottom: 5px; }
             .header-line { border-bottom: 2px solid #95C11F; margin-bottom: 20px; }
-            
             .top-container { width: 100%; margin-bottom: 20px; display: table; }
             .summary-box { display: table-cell; width: 60%; background: #FAFAFA; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
             .overall-box { display: table-cell; width: 35%; background: rgba(149, 193, 31, 0.1); border: 2px solid #95C11F; border-radius: 10px; text-align: center; vertical-align: middle; }
             .overall-score { color: #95C11F; font-size: 32pt; font-weight: bold; display: block; }
-            
             .row { width: 100%; margin-bottom: 20px; display: table; border-collapse: separate; border-spacing: 5px 0px; }
             .col { display: table-cell; width: 25%; background: white; border: 1px solid #eee; padding: 10px; text-align: center; border-radius: 8px; vertical-align: top;}
             .col-label { font-size: 8pt; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 5px; }
             .col-val { color: #95C11F; font-size: 16pt; font-weight: bold; }
-
             .swot-grid { width: 100%; display: table; border-collapse: separate; border-spacing: 5px; }
             .swot-row { display: table-row; }
             .swot-cell { display: table-cell; width: 50%; border: 1px solid #eee; padding: 15px; border-radius: 10px; background: white; }
             .swot-title { font-weight: bold; font-size: 9pt; text-transform: uppercase; margin-bottom: 8px; display: block; }
-            
             .bullet { color: #F9B333; font-weight: bold; margin-right: 5px; }
             .swot-list { list-style: none; padding: 0; margin: 0; font-size: 9pt; font-style: italic; }
             .rec-list { list-style: none; padding: 0; margin-top: 10px; }
@@ -297,14 +285,14 @@ async def generate_report(data: dict):
         </style>
     </head>
     <body>
-        <h1>Value4Farm Audit Report</h1>
+        <h1>Value4Farm Audit Assessment Report</h1>
         <div class="header-line"></div>
         
         <div class="top-container">
             <div class="summary-box">
                 <p><strong>Farm Location:</strong> {{ loc }}</p>
-                <p><strong>Audit Focus:</strong> {{ focus }}</p>
-                <p><strong>Total Size:</strong> {{ size }} {{ unit }}</p>
+                <p><strong>Calculated System Size:</strong> {{ system_size }} kWp</p>
+                <p><strong>Analyzed Plot Target Space:</strong> {{ size }} Hectares</p>
             </div>
             <div class="overall-box">
                 <span style="font-size: 9pt; font-weight: bold; text-transform: uppercase;">Overall Feasibility</span><br>
@@ -316,10 +304,10 @@ async def generate_report(data: dict):
             <div class="col"><span class="col-label">Socio-Economic</span><span class="col-val">{{ scores.socio_economic }}%</span></div>
             <div class="col"><span class="col-label">Agronomic</span><span class="col-val">{{ scores.agronomic }}%</span></div>
             <div class="col"><span class="col-label">Environmental</span><span class="col-val">{{ scores.environmental }}%</span></div>
-            <div class="col" style="margin-right: 0;"><span class="col-label">Technical</span><span class="col-val">{{ scores.technical }}%</span></div>
+            <div class="col"><span class="col-label">Technical</span><span class="col-val">{{ scores.technical }}%</span></div>
         </div>
 
-        <h3>SWOT Analysis</h3>
+        <h3>BBN SWOT Framework Analysis</h3>
         <div class="swot-grid">
             <div class="swot-row">
                 <div class="swot-cell">
@@ -352,18 +340,13 @@ async def generate_report(data: dict):
     </body>
     </html>
     """
-
-    # ==========================================
-    # 4. RENDER HTML AND CONVERT TO PDF
-    # ==========================================
-    template = Template(html_template)
-    rendered_html = template.render(
-        loc=location,
-        size=size,
-        unit=unit,
-        focus=focus,
+    
+    rendered_html = Template(html_template).render(
+        loc=country, 
+        size=available_ha,
+        system_size=round(installed_capacity_kwp, 1),
         scores=feasibility_scores,
-        swot=swot_analysis,
+        swot=swot,
         recommendations=recommendations
     )
     
@@ -372,7 +355,7 @@ async def generate_report(data: dict):
 
     return {
         "scores": feasibility_scores,
-        "swot": swot_analysis,
+        "swot": swot,
         "recommendations": recommendations,
         "pdf": pdf_base64
     }
