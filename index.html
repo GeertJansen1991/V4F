@@ -96,56 +96,17 @@
         </header>
 
         <div class="bg-white p-10 rounded-2xl shadow-xl border border-slate-100">
-            <div v-if="currentView === 'welcome'" class="max-w-2xl mx-auto py-6 animate-fade-in text-center">
-                <h2 class="text-4xl font-black text-v4f-neutral mb-2">Welcome to the V4F Audit Tool</h2>
-                <p class="text-sm text-v4f-neutral/80 uppercase tracking-wider font-semibold mb-8">
-                    Part of the Value4Farm Decision Support Framework (Grant No. xxxxxxxxx)
-                </p>
-                
-                <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-left space-y-6 mb-8">
-                    <p class="text-slate-600 leading-relaxed">
-                        This tool assesses the feasibility of combining energy production through <strong>Agrivoltaics and/or Biogas</strong> with food production. It provides a localized multi-criteria analysis based on environmental, financial, agronomic, social, and legislative aspects.
-                    </p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <h4 class="font-bold text-v4f-neutral mb-1 text-sm flex items-center gap-2">
-                                <span class="text-v4f-base">✔</span> Purely Informative
-                            </h4>
-                            <p class="text-xs text-slate-500">Calculations rely on scientific research from the Value4Farm project and published data. This tool does not make final decisions for you.</p>
-                        </div>
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <h4 class="font-bold text-v4f-neutral mb-1 text-sm flex items-center gap-2">
-                                <span class="text-v4f-base">✔</span> Fully Anonymous
-                            </h4>
-                            <p class="text-xs text-slate-500">Your privacy matters. All inputs are processed strictly in real-time to generate your report. No data is saved or stored.</p>
-                        </div>
-                    </div>
-            
-                    <div class="pt-4 border-t border-slate-100">
-                        <h4 class="font-bold text-v4f-neutral mb-3 text-sm uppercase tracking-wide">The 3-Step Transition Framework:</h4>
-                        <ol class="space-y-3 text-sm text-slate-600">
-                            <li class="flex gap-2">
-                                <span class="font-bold text-v4f-neutral">1. Learn:</span> 
-                                <span>Complete the introductory MOOC at <a href="#" class="text-v4f-base underline font-medium">XXXXXX</a> to understand the core concepts.</span>
-                            </li>
-                            <li class="flex gap-2 bg-v4f-base/5 p-2 rounded-lg border border-v4f-base/20">
-                                <span class="font-bold text-v4f-base">2. Audit:</span> 
-                                <span>(Current Step) Evaluate your farm's unique spatial, technical, and resource compatibility.</span>
-                            </li>
-                            <li class="flex gap-2">
-                                <span class="font-bold text-v4f-neutral">3. Transition:</span> 
-                                <span>Access the implementation tool to find actionable deployment paths and local expert help.</span>
-                            </li>
-                        </ol>
-                    </div>
+            <div v-if="currentView === 'welcome'" class="max-w-2xl mx-auto py-10 animate-fade-in text-center">
+                <h2 class="text-4xl font-black text-v4f-neutral mb-6">Welcome to the V4F Audit Tool</h2>
+                <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-left space-y-4 mb-8">
+                    <p class="text-slate-600"><strong>What this tool is:</strong> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. </p>
+                    <p class="text-slate-600"><strong>What this tool is not:</strong> Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. </p>
                 </div>
-                
                 <button @click="currentView = 'form'" class="bg-v4f-base hover:opacity-90 text-white px-10 py-4 rounded-xl font-bold shadow-lg transition-all text-xl">
                     Start Assessment
                 </button>
             </div>
-            
+
             <div v-if="currentView === 'form'">
                 
                 <div v-if="currentSection === 'focus'" class="space-y-8 animate-fade-in">
@@ -160,7 +121,7 @@
                     </div>
                     <p class="text-slate-500 font-medium">What are you interested in auditing for your farm?</p>
                     <div class="flex flex-col gap-4">
-                        <button type="button" v-for="focus in ['Agrivoltaics', 'Biogas', 'Both']" :key="focus"
+                        <button v-for="focus in ['Agrivoltaics', 'Biogas', 'Both']" 
                                 @click="formData.auditFocus = focus"
                                 :class="formData.auditFocus === focus ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
                                 class="p-6 border-2 rounded-xl text-left font-bold transition-all shadow-sm text-lg">
@@ -168,6 +129,7 @@
                         </button>
                     </div>
                 </div>
+
                 <!-- Section 1: General farm profile -->
                 <div v-if="currentSection === 'farm'" class="space-y-8 animate-fade-in">
                     <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Your farm</h2>
@@ -456,82 +418,42 @@
                             </div>
                         </div>
 
-                        <div v-if="formData.biogas.selectedLivestock.length > 0" class="space-y-4 mt-6">
-                            <label class="block font-bold text-v4f-neutral text-sm mb-2">
-                                Herd Housing & Management
-                            </label>
-                            
-                            <div v-for="type in formData.biogas.selectedLivestock" :key="type" 
-                                 class="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-sm">
-                                
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
-                                    <span class="font-black text-v4f-neutral text-base flex items-center gap-2">
-                                        <span class="text-v4f-base">●</span> {{ type }}
-                                    </span>
-                                    <div class="flex items-center gap-2">
-                                        <label class="text-xs font-bold text-slate-600 uppercase">Number of Animals:</label>
-                                        <input type="number" v-model="formData.biogas.herdDetails[type].count" min="0" placeholder="0"
-                                               class="w-24 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold text-v4f-neutral outline-v4f-base">
-                                    </div>
-                                </div>
-                        
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                                    
-                                    <div>
-                                        <label class="block text-xs font-black uppercase text-slate-500 mb-2">
-                                            When are the animals housed indoors?
-                                        </label>
-                                        
-                                        <div class="flex flex-col gap-2">
-                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
-                                                <input type="radio" :name="'housing-'+type" value="year-round" 
-                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
-                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
-                                                <span class="text-sm font-medium text-slate-700">🏠 Year-Round Indoors (Stable/Confinement)</span>
-                                            </label>
-                        
-                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
-                                                <input type="radio" :name="'housing-'+type" value="winter" 
-                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
-                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
-                                                <span class="text-sm font-medium text-slate-700">❄ Winter Only (Stables in cold months, Pasture in summer)</span>
-                                            </label>
-                        
-                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
-                                                <input type="radio" :name="'housing-'+type" value="winter-autumn" 
-                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
-                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
-                                                <span class="text-sm font-medium text-slate-700">🍂 Winter & Autumn (Extended indoor period)</span>
-                                            </label>
-                        
-                                            <label class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-v4f-base transition-colors">
-                                                <input type="radio" :name="'housing-'+type" value="pasture" 
-                                                       v-model="formData.biogas.herdDetails[type].housingMode" 
-                                                       class="w-4 h-4 text-v4f-base checked:bg-v4f-base">
-                                                <span class="text-sm font-medium text-slate-700">🌳 Year-Round Outdoors (Continuous Pasture)</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                        
-                                    <div class="flex flex-col justify-between">
-                                        <div>
-                                            <label class="block text-xs font-black uppercase text-slate-500 mb-2">Manure Collection System</label>
-                                            <select v-model="formData.biogas.manureSystems[type]" 
-                                                    :disabled="formData.biogas.herdDetails[type].housingMode === 'pasture'"
-                                                    :class="formData.biogas.herdDetails[type].housingMode === 'pasture' ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white'"
-                                                    class="w-full p-3 border border-slate-300 rounded-lg text-sm font-medium outline-v4f-base text-slate-700 transition-colors">
+                        <div v-if="formData.biogas.selectedLivestock.length > 0" class="overflow-x-auto mt-6">
+                            <table class="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-v4f-neutral">
+                                        <th class="p-2 border">Type</th>
+                                        <th class="p-2 border">No. Animals</th>
+                                        <th class="p-2 border">Inside (12m)</th>
+                                        <th class="p-2 border">Outside (0m)</th>
+                                        <th class="p-2 border">Partial</th>
+                                        <th class="p-2 border">Collection System</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="type in formData.biogas.selectedLivestock" :key="type">
+                                        <td class="p-2 border font-bold">{{ type }}</td>
+                                        <td class="p-2 border">
+                                            <input type="number" v-model="formData.biogas.herdDetails[type].count" class="w-16 p-1 border rounded">
+                                        </td>
+                                        <td class="p-2 border text-center"><input type="radio" :name="'h-'+type" value="12" v-model="formData.biogas.herdDetails[type].monthsInside"></td>
+                                        <td class="p-2 border text-center"><input type="radio" :name="'h-'+type" value="0" v-model="formData.biogas.herdDetails[type].monthsInside"></td>
+                                        <td class="p-2 border">
+                                            <div class="flex items-center gap-1">
+                                                <input type="radio" :name="'h-'+type" value="partial" v-model="formData.biogas.herdDetails[type].housingMode">
+                                                <select v-if="formData.biogas.herdDetails[type].housingMode === 'partial'" v-model="formData.biogas.herdDetails[type].monthsInside" class="p-1 border rounded">
+                                                    <option v-for="m in 11" :value="m">{{ m }} m</option>
+                                                </select>
+                                            </div>
+                                        </td>
+                                        <td class="p-2 border">
+                                            <select v-model="formData.biogas.manureSystems[type]" class="w-full p-1 border rounded">
                                                 <option v-for="m in manureCollectionOptions" :value="m">{{ m }}</option>
                                             </select>
-                                        </div>
-                        
-                                        <div v-if="formData.biogas.herdDetails[type].housingMode === 'pasture'" 
-                                             class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 italic mt-4">
-                                            ⚠ Note: If animals are outdoors year-round, collectable manure volumes drop to near zero, significantly impacting baseline biogas potential.
-                                        </div>
-                                    </div>
-                                </div>
-                        
-                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </section>
 
@@ -554,77 +476,28 @@
                     <!-- Section 3: Energy & Infrastructure -->
                     <section class="space-y-6 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Energy & Infrastructure</h3>
-                        
-                        <div class="space-y-3">
-                            <label class="block font-bold text-v4f-neutral text-sm">
-                                What is your intended pathway for utilizing the generated biogas?
-                            </label>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                
-                                <button type="button" @click="formData.biogas.energy.pathway = 'CHP'"
-                                        :class="formData.biogas.energy.pathway === 'CHP' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
-                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
-                                    <div>
-                                        <span class="block font-black text-sm mb-1">⚡ Combined Heat & Power (CHP)</span>
-                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Burn gas on-site in a co-generation engine to produce electricity and usable heat.</span>
-                                    </div>
-                                </button>
-                    
-                                <button type="button" @click="formData.biogas.energy.pathway = 'Biomethane'"
-                                        :class="formData.biogas.energy.pathway === 'Biomethane' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
-                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
-                                    <div>
-                                        <span class="block font-black text-sm mb-1">🔥 Biomethane Upgrading</span>
-                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Purify biogas to grid-quality gas for injection into the gas network or use as transport fuel.</span>
-                                    </div>
-                                </button>
-                    
-                                <button type="button" @click="formData.biogas.energy.pathway = 'Evaluate Both'"
-                                        :class="formData.biogas.energy.pathway === 'Evaluate Both' ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
-                                        class="p-4 border-2 rounded-xl text-left transition-all shadow-sm flex flex-col justify-between min-h-[120px]">
-                                    <div>
-                                        <span class="block font-black text-sm mb-1">📊 Evaluate Both Pathways</span>
-                                        <span class="block text-xs font-normal text-slate-500 leading-relaxed">Let the audit tool calculate and compare the feasibility metrics for both scenarios.</span>
-                                    </div>
-                                </button>
-                    
-                            </div>
-                        </div>
-                    
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-bold text-slate-600 mb-2">Annual Heat Consumption (kWh/yr):</label>
-                                <input type="number" v-model="formData.biogas.energy.heat" placeholder="e.g., 45000"
-                                       class="w-full p-3 bg-v4f-bg border rounded-xl outline-v4f-base font-medium">
-                                <p v-if="formData.biogas.energy.pathway === 'CHP'" class="text-[11px] text-v4f-neutral mt-1 italic">
-                                    💡 High local heat use improves the efficiency and economic feasibility of a CHP unit.
-                                </p>
+                                <label class="block text-sm font-bold text-slate-600">Annual Heat Consumption (kWh/yr):</label>
+                                <input type="number" v-model="formData.biogas.energy.heat" class="w-full p-3 bg-v4f-bg border rounded-xl">
                             </div>
-                            
                             <div>
-                                <label class="block text-sm font-bold text-slate-600 mb-2">Gas grid connection nearby?</label>
-                                <select v-model="formData.biogas.infrastructure.gasGrid" 
-                                        class="w-full p-3 bg-v4f-bg border rounded-xl outline-v4f-base font-medium text-slate-700">
-                                    <option disabled value="">Select status...</option>
-                                    <option value="Yes">Yes, there is a gas pipeline nearby</option>
-                                    <option value="No">No close pipeline connection</option>
-                                    <option value="Unknown">Unknown</option>
+                                <label class="block text-sm font-bold text-slate-600">Gas grid connection nearby?</label>
+                                <select v-model="formData.biogas.infrastructure.gasGrid" class="w-full p-3 bg-v4f-bg border rounded-xl">
+                                    <option v-for="o in ['Yes', 'No', 'Unknown']">{{ o }}</option>
                                 </select>
-                                <p v-if="formData.biogas.energy.pathway === 'Biomethane' && formData.biogas.infrastructure.gasGrid === 'No'" 
-                                   class="text-[11px] text-amber-600 mt-1 italic font-medium">
-                                    ⚠ Note: Upgrading to biomethane without grid access requires alternative compression/trucking logistics, which sharply changes project economics.
-                                </p>
                             </div>
                         </div>
                     </section>
-                
-                </div> <div class="mt-12 flex justify-between items-center border-t border-slate-100 pt-8">
-                    <button type="button" @click="prevStep" v-if="currentStep > 1" 
+                </div>
+
+                <div class="mt-12 flex justify-between items-center border-t border-slate-100 pt-8">
+                    <button @click="prevStep" v-if="currentStep > 1" 
                             class="text-v4f-neutral hover:text-v4f-base font-bold transition-colors flex items-center gap-2">
                         &larr; Back
                     </button>
                     <div v-else></div>
-                    <button type="button" @click="nextStep"
+                    <button @click="nextStep"
                             :disabled="!isCurrentStepValid"
                             :class="!isCurrentStepValid ? 'opacity-50 cursor-not-allowed bg-slate-300 text-slate-500' : 'bg-v4f-accent hover:opacity-90 text-white shadow-lg'"
                             class="px-12 py-4 rounded-xl font-bold transition-all text-lg">
@@ -632,7 +505,8 @@
                     </button>
                 </div>
 
-            </div> <div v-else-if="currentView === 'loading'" class="flex flex-col items-center justify-center py-20 animate-fade-in text-center">                <div class="w-20 h-20 border-4 border-slate-200 border-t-v4f-base rounded-full animate-spin mb-8"></div>
+            </div> <div v-else-if="currentView === 'loading'" class="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
+                <div class="w-20 h-20 border-4 border-slate-200 border-t-v4f-base rounded-full animate-spin mb-8"></div>
                 <h2 class="text-4xl font-bold text-v4f-neutral mb-3">Calculating...</h2>
                 <p class="text-slate-500 font-medium text-lg">Please wait while we evaluate your farm's potential.</p>
             </div>
@@ -653,28 +527,22 @@
                         <p class="text-slate-600"><strong>Focus:</strong> {{ formData.auditFocus }}</p>
                         <p class="text-slate-600"><strong>Size:</strong> {{ formData.totalSize }} {{ formData.unit }}</p>
                     </div>
-                    <div class="p-6 bg-v4f-base/10 border-2 border-v4f-base rounded-2xl flex flex-col items-center justify-center">
+                    <!-- Overall Feasibility with Traffic Light Border & Text -->
+                    <div :class="getScoreColor(assessmentResults.scores.overall, 'border')" class="p-6 bg-white border-2 rounded-2xl flex flex-col items-center justify-center shadow-sm">
                         <h3 class="text-sm font-bold text-v4f-neutral uppercase tracking-wider mb-1">Overall Feasibility</h3>
-                        <span class="text-5xl font-black text-v4f-base">{{ assessmentResults.scores.overall }}%</span>
+                        <span :class="getScoreColor(assessmentResults.scores.overall, 'text')" class="text-5xl font-black">{{ assessmentResults.scores.overall }}%</span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                    <div v-for="key in ['socio_economic', 'agronomic', 'environmental', 'technical']" :key="key" 
-                        class="p-5 bg-white border border-slate-200 rounded-xl text-center shadow-sm flex flex-col justify-between">
-                        <div>
-                            <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-2">{{ key.replace('_', ' ') }}</span>
-                            
-                            <span class="text-3xl font-black text-v4f-base">{{ assessmentResults.scores[key] }}%</span>
-                            
-                            <div class="w-full bg-slate-100 h-1.5 mt-2 rounded-full overflow-hidden">
-                                <div class="bg-v4f-base h-full" :style="{ width: assessmentResults.scores[key] + '%' }"></div>
-                            </div>
+                <!-- 5-Grid Layout for Independent Sub-Feasibilities -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div v-for="key in ['economic', 'social', 'agronomic', 'environmental', 'technical']" :key="key" 
+                        class="p-4 bg-white border border-slate-200 rounded-xl text-center shadow-sm flex flex-col justify-between">
+                        <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-2">{{ key.replace('_', ' ') }}</span>
+                        <span :class="getScoreColor(assessmentResults.scores[key], 'text')" class="text-2xl font-black">{{ assessmentResults.scores[key] }}%</span>
+                        <div class="w-full bg-slate-100 h-2 mt-3 rounded-full overflow-hidden">
+                            <div :class="getScoreColor(assessmentResults.scores[key], 'bg')" class="h-full" :style="{ width: assessmentResults.scores[key] + '%' }"></div>
                         </div>
-                
-                        <p class="text-[11px] text-slate-500 font-medium leading-relaxed mt-4 pt-3 border-t border-slate-100 italic">
-                            {{ getScoreExplanation(key, assessmentResults.scores[key]) }}
-                        </p>
                     </div>
                 </div>
 
@@ -764,7 +632,7 @@
                         rotation: '',
                         coverCrops: { grow: false, area: null },
                         residueManagement: [],
-                        energy: { heat: null, fertilizer: null, pathway: '' },
+                        energy: { heat: null, fertilizer: null },
                         infrastructure: { gasGrid: '', collaboration: 3 }
                     }
                 });
@@ -949,15 +817,13 @@
                         
                         // Check if Bovine is selected but no subtype is picked
                         const bovineNeedsSubtype = bio.selectedLivestock.includes('Bovine') && 
-                                                (!bio.herdDetails['Bovine'].subtype || bio.herdDetails['Bovine'].subtype.length === 0);
+                                                bio.herdDetails['Bovine'].subtype.length === 0;
                                                 
-                        const hasHeat = bio.energy.heat !== null && bio.energy.heat !== '';
+                        const hasHeat = bio.energy.heat !== null;
                         const hasInfrastructure = !!bio.infrastructure.gasGrid;
                         
-                        // NEW: Ensure a utilization pathway is selected
-                        const hasPathway = !!bio.energy.pathway;
-                        
-                        return hasHeat && hasInfrastructure && hasPathway && !bovineNeedsSubtype;
+                        // Step is valid if basic info is there AND bovine has subtypes (if applicable)
+                        return hasHeat && hasInfrastructure && !bovineNeedsSubtype;
                     }
                     
                     return true; 
@@ -1005,7 +871,7 @@
                 async function finalizeForm() {
                     currentView.value = 'loading';
                     try {
-                        const response = await fetch('https://v4f.onrender.com/generate-report', {
+                        const response = await fetch('http://127.0.0.1:8000/generate-report', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(formData.value)
@@ -1033,6 +899,25 @@
                     link.click();
                 }
 
+                function getScoreColor(score, element) {
+                    const val = Number(score) || 0;
+                    
+                    let status = 'orange'; // 40% - 70% Default
+                    if (val < 40) {
+                        status = 'red';
+                    } else if (val > 70) {
+                        status = 'green';
+                    }
+
+                    const mappings = {
+                        text: { red: 'text-rose-600', orange: 'text-amber-500', green: 'text-emerald-600' },
+                        bg: { red: 'bg-rose-500', orange: 'bg-amber-500', green: 'bg-emerald-500' },
+                        border: { red: 'border-rose-500 bg-rose-50/20', orange: 'border-amber-400 bg-amber-50/20', green: 'border-emerald-500 bg-emerald-50/20' }
+                    };
+
+                    return mappings[element][status];
+                }
+
                 return { 
                     currentView, currentStep, currentSection, totalSteps, progressPercentage, 
                     isCurrentStepValid, formData, searchQuery, showCountryDropdown, 
@@ -1047,41 +932,7 @@
                     manureCollectionOptions, filteredLandFields,
                     slopeDirections,
                     plotLandUseOptions, irrigationOptions, waterSourceOptions,
-                    
-                    // ADD THIS NEW ENGINE METHOD HERE:
-                    getScoreExplanation(category, score) {
-                        if (!score) return "No baseline data calculated.";
-                        
-                        const explanations = {
-                            socio_economic: {
-                                high: "High likelihood that the technology is economically beneficial and matches your operational timeline structure.",
-                                moderate: "Viable economic foundations, though long-term tenant structures or scale limitations require careful financial planning.",
-                                low: "Significant business case constraints. Tenure issues or localized scaling dynamics limit secure return on investment."
-                            },
-                            agronomic: {
-                                high: "Excellent crop-to-panel compatibility profile, optimizing microclimatic shielding benefits without disrupting cultivation yields.",
-                                moderate: "Balanced vegetation index; expect moderate shade adaptations or adjustments to seasonal rotation patterns.",
-                                low: "High baseline structural light disruption risks impacting standard yield metrics for sun-dependent crops."
-                            },
-                            environmental: {
-                                high: "Substantial positive lifecycle indicator; high synergy across localized organic inputs and natural resource tracking.",
-                                moderate: "Maintains a neutral to positive ecological baseline profile, aligning with regional circular sustainability goals.",
-                                low: "Low operational resource recovery value. Feedstock limits or layout issues degrade total target offsets."
-                            },
-                            technical: {
-                                high: "Optimal physical engineering baseline. Machinery clearances, soil topography, and aspect features match standard layouts perfectly.",
-                                moderate: "Technically feasible tracking framework, though specific machinery profiles or land slopes require design adjustments.",
-                                low: "Complex engineering barriers detected. Severe terrain slopes, subsurface hazards, or clearance limits restrict deployment."
-                            }
-                        };
-                
-                        // Determine tier based on the numerical calculation score
-                        let tier = "moderate";
-                        if (score >= 85) tier = "high";
-                        else if (score < 60) tier = "low";
-                
-                        return explanations[category][tier];
-                    }
+                    getScoreColor // <-- Make sure this line is added inside the brackets!
                 }
             } // end of setup
         }).mount('#app')
