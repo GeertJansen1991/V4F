@@ -220,26 +220,54 @@ async def generate_report(data: dict):
     env = inference.query(variables=['Environmental_Feasibility'], evidence=evidence)
     overall = inference.query(variables=['Overall_Feasibility'], evidence=evidence)
 
-    # Fixed formatting keys strictly maps payload data properties expected by index.html
-    feasibility_scores = {
-            "overall": int(overall.values[2] * 100),
-            "technical": int(tech.values[2] * 100),
-            "economic": int(eco.values[2] * 100),
-            "social": int(soc.values[2] * 100),
-            "agronomic": int(agro.values[2] * 100),
-            "environmental": int(env.values[2] * 100)
-        }
+    # Standardize output percentages
+    scores_raw = {
+        "overall": int(overall.values[2] * 100),
+        "technical": int(tech.values[2] * 100),
+        "economic": int(eco.values[2] * 100),
+        "socio_economic": int(eco.values[2] * 100),
+        "social": int(soc.values[2] * 100),
+        "agronomic": int(agro.values[2] * 100),
+        "environmental": int(env.values[2] * 100)
+    }
 
-    # Generate Dynamic Contextual SWOT Framework
+    # Helper function to assign traffic light colors based on score thresholds
+    def get_light(score):
+        if score < 40: return "🔴"
+        elif score > 70: return "🟢"
+        return "🟡"
+
+    status_lights = {k: get_light(v) for k, v in scores_raw.items()}
+
+    # --- DYNAMIC SWOT LOGIC ---
+    swot_strengths = [
+        f"High Local Solar Density footprint matching a calculated system sizing scale of {round(installed_capacity_kwp, 1)} kWp.",
+        "Strong institutional alignment observed relative to national agricultural structural agendas."
+    ]
+    swot_weaknesses = [
+        f"Machinery spatial adjustments needed for operations above {machinery_height} meters.",
+        "Longer capital amortization terms based on specific local grid utility structures."
+    ]
+
+    # 1. Dynamic Environmental SWOT Placement
+    if net_impact < -10.0:
+        swot_strengths.append("Significant greenhouse gas savings expected due to high carbon offset potential relative to your local electricity grid.")
+    elif -10.0 <= net_impact <= 10.0:
+        swot_strengths.append("Moderate environmental profile, introducing stable ecological lifecycle offsets.")
+    else:
+        swot_weaknesses.append("Agrivoltaics is unlikely to give considerable greenhouse gas savings compared to your highly decarbonized local electricity grid.")
+
+    # 2. Dynamic Economic SWOT Placement
+    if roi > 50:
+        swot_strengths.append("Strong business case: The assessment demonstrates a highly positive long-term economic outcome.")
+    elif -25 <= roi <= 50:
+        swot_strengths.append("Neutral economic outlook: Stable baseline returns projected with standard amortization profiles.")
+    else:
+        swot_weaknesses.append("Constrained metrics: Project shows a likely not positive economic outcome under current tariff conditions.")
+
     swot = {
-        "strengths": [
-            f"High Local Solar Density footprint matching a calculated system sizing scale of {round(installed_capacity_kwp, 1)} kWp.",
-            "Strong institutional alignment observed relative to national agricultural structural agendas."
-        ],
-        "weaknesses": [
-            f"Machinery spatial adjustments needed for operations above {machinery_height} meters.",
-            "Longer capital amortization terms based on specific local grid utility structures."
-        ],
+        "strengths": swot_strengths,
+        "weaknesses": swot_weaknesses,
         "opportunities": [
             "Integrated Microgrid Synergy: Stabilizing operational margins against structural utility rate variations.",
             "Dual land-use optimization allowing shared yield preservation under fluctuating solar weather patterns."
@@ -250,11 +278,10 @@ async def generate_report(data: dict):
         ]
     }
 
-    # Placeholder dynamic recommendations (TBA placeholders)
     recommendations = [
         "Prioritize semi-transparent tracking module positions to optimize under-canopy crop light metrics.",
         "Assess utility sub-station distances to minimize balance-of-system cost overruns.",
-        "[TBA Recommendation 3 - Structural optimization strategies under discussion]"
+        "Initiate a formal structural review of local dual-use zoning guidelines before capital assignment."
     ]
 
     # --- EMBEDDED DYNAMIC HTML-TO-PDF STRUCTURAL ENGINE ---
@@ -268,12 +295,12 @@ async def generate_report(data: dict):
             .header-line { border-bottom: 2px solid #95C11F; margin-bottom: 20px; }
             .top-container { width: 100%; margin-bottom: 20px; display: table; }
             .summary-box { display: table-cell; width: 60%; background: #FAFAFA; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
-            .overall-box { display: table-cell; width: 35%; background: rgba(149, 193, 31, 0.1); border: 2px solid #95C11F; border-radius: 10px; text-align: center; vertical-align: middle; }
-            .overall-score { color: #95C11F; font-size: 32pt; font-weight: bold; display: block; }
+            .overall-box { display: table-cell; width: 35%; background: rgba(149, 193, 31, 0.1); border: 2px solid #95C11F; border-radius: 10px; text-align: center; vertical-align: middle; padding: 10px; }
+            .overall-light { font-size: 36pt; display: block; margin-top: 5px; }
             .row { width: 100%; margin-bottom: 20px; display: table; border-collapse: separate; border-spacing: 5px 0px; }
-            .col { display: table-cell; width: 25%; background: white; border: 1px solid #eee; padding: 10px; text-align: center; border-radius: 8px; vertical-align: top;}
-            .col-label { font-size: 8pt; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 5px; }
-            .col-val { color: #95C11F; font-size: 16pt; font-weight: bold; }
+            .col { display: table-cell; width: 25%; background: white; border: 1px solid #eee; padding: 15px; text-align: center; border-radius: 8px; vertical-align: top;}
+            .col-label { font-size: 8pt; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 8px; }
+            .col-light { font-size: 22pt; display: block; }
             .swot-grid { width: 100%; display: table; border-collapse: separate; border-spacing: 5px; }
             .swot-row { display: table-row; }
             .swot-cell { display: table-cell; width: 50%; border: 1px solid #eee; padding: 15px; border-radius: 10px; background: white; }
@@ -295,16 +322,16 @@ async def generate_report(data: dict):
                 <p><strong>Analyzed Plot Target Space:</strong> {{ size }} Hectares</p>
             </div>
             <div class="overall-box">
-                <span style="font-size: 9pt; font-weight: bold; text-transform: uppercase;">Overall Feasibility</span><br>
-                <span class="overall-score">{{ scores.overall }}%</span>
+                <span style="font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #74776A;">Overall Feasibility</span><br>
+                <span class="overall-light">{{ lights.overall }}</span>
             </div>
         </div>
 
         <div class="row">
-            <div class="col"><span class="col-label">Socio-Economic</span><span class="col-val">{{ scores.socio_economic }}%</span></div>
-            <div class="col"><span class="col-label">Agronomic</span><span class="col-val">{{ scores.agronomic }}%</span></div>
-            <div class="col"><span class="col-label">Environmental</span><span class="col-val">{{ scores.environmental }}%</span></div>
-            <div class="col"><span class="col-label">Technical</span><span class="col-val">{{ scores.technical }}%</span></div>
+            <div class="col"><span class="col-label">Socio-Economic</span><span class="col-light">{{ lights.socio_economic }}</span></div>
+            <div class="col"><span class="col-label">Agronomic</span><span class="col-light">{{ lights.agronomic }}</span></div>
+            <div class="col"><span class="col-label">Environmental</span><span class="col-light">{{ lights.environmental }}</span></div>
+            <div class="col"><span class="col-label">Technical</span><span class="col-light">{{ lights.technical }}</span></div>
         </div>
 
         <h3>BBN SWOT Framework Analysis</h3>
@@ -345,7 +372,7 @@ async def generate_report(data: dict):
         loc=country, 
         size=available_ha,
         system_size=round(installed_capacity_kwp, 1),
-        scores=feasibility_scores,
+        lights=status_lights,
         swot=swot,
         recommendations=recommendations
     )
@@ -354,7 +381,8 @@ async def generate_report(data: dict):
     pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
 
     return {
-        "scores": feasibility_scores,
+        "scores": scores_raw,
+        "lights": status_lights,
         "swot": swot,
         "recommendations": recommendations,
         "pdf": pdf_base64
