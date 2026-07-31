@@ -520,32 +520,29 @@
                     </button>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                         <h3 class="text-sm font-bold text-v4f-neutral uppercase tracking-wider">Farm Summary</h3>
                         <p class="text-slate-600"><strong>Location:</strong> {{ formData.location }}</p>
                         <p class="text-slate-600"><strong>Focus:</strong> {{ formData.auditFocus }}</p>
                         <p class="text-slate-600"><strong>Size:</strong> {{ formData.totalSize }} {{ formData.unit }}</p>
                     </div>
-                    <!-- Overall Feasibility with Traffic Light Border & Text -->
+                    <!-- Overall Feasibility with Traffic Light Dot Status -->
                     <div :class="getScoreColor(assessmentResults.scores.overall, 'border')" class="p-6 bg-white border-2 rounded-2xl flex flex-col items-center justify-center shadow-sm">
                         <h3 class="text-sm font-bold text-v4f-neutral uppercase tracking-wider mb-1">Overall Feasibility</h3>
-                        <span :class="getScoreColor(assessmentResults.scores.overall, 'text')" class="text-5xl font-black">{{ assessmentResults.scores.overall }}%</span>
+                        <span class="text-6xl mt-2">{{ assessmentResults.lights.overall }}</span>
                     </div>
                 </div>
 
-                <!-- 5-Grid Layout for Independent Sub-Feasibilities -->
+                <!-- 5-Grid Layout for Independent Sub-Feasibilities showing purely Traffic Lights -->
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div v-for="key in ['economic', 'social', 'agronomic', 'environmental', 'technical']" :key="key" 
-                        class="p-4 bg-white border border-slate-200 rounded-xl text-center shadow-sm flex flex-col justify-between">
-                        <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-2">{{ key.replace('_', ' ') }}</span>
-                        <span :class="getScoreColor(assessmentResults.scores[key], 'text')" class="text-2xl font-black">{{ assessmentResults.scores[key] }}%</span>
-                        <div class="w-full bg-slate-100 h-2 mt-3 rounded-full overflow-hidden">
-                            <div :class="getScoreColor(assessmentResults.scores[key], 'bg')" class="h-full" :style="{ width: assessmentResults.scores[key] + '%' }"></div>
-                        </div>
+                        class="p-5 bg-white border border-slate-200 rounded-xl text-center shadow-sm flex flex-col items-center justify-center">
+                        <span class="block text-[10px] font-black uppercase text-v4f-neutral mb-3">{{ key.replace('_', ' ') }}</span>
+                        <span class="text-4xl">{{ assessmentResults.lights[key] }}</span>
                     </div>
                 </div>
-
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                     <div v-for="(items, type) in assessmentResults.swot" :key="type" class="bg-white p-6">
                         <h4 class="font-black text-v4f-neutral uppercase text-xs mb-3 flex items-center gap-2">
