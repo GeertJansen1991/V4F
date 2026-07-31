@@ -119,7 +119,7 @@ def initialize_system():
     cpd_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(soc_matrix).T.tolist(), evidence=['Visual_Impact'], evidence_card=[5])
 
     agro_matrix = []
-    for yld in [0,1,2]:    
+    for yld in [0,1,2]:     
         for wat in [0,1,2]:  
             for mac in [0,1,2]: 
                 combined = (yld+wat+mac)/6.0
@@ -149,22 +149,31 @@ def initialize_system():
                              evidence_card=[3, 3, 3, 3, 3, 3, 3])
 
     model_apv.add_cpds(cpd_pol, cpd_per, cpd_sub, cpd_rev, cpd_ene, cpd_eco, cpd_vis, cpd_cyi, cpd_wdi, cpd_mac, cpd_env, cpd_own, cpd_suc,
-                   cpd_gov, cpd_tech, cpd_eco_feas, cpd_soc_feas, cpd_agro_feas, cpd_env_feas, cpd_overall)
+                       cpd_gov, cpd_tech, cpd_eco_feas, cpd_soc_feas, cpd_agro_feas, cpd_env_feas, cpd_overall)
     model_apv.check_model()
     bbn_apv_model = model_apv
 
     # ====================================================
-    # NETWORK 2: BIOGAS GRAPH (CH4)
+    # NETWORK 2: BIOGAS GRAPH (CH4) - PROBABILISTIC FEASIBILITIES
     # ====================================================
     model_ch4 = DiscreteBayesianNetwork([
         ('CH4_Pol', 'CH4_Governance'), ('CH4_Per', 'CH4_Governance'), ('CH4_Sub', 'CH4_Governance'), ('CH4_Rev', 'CH4_Governance'),
         ('CH4_Governance', 'Technical_Feasibility'), ('Feedstock_Potential', 'Technical_Feasibility'),
         ('Economic_Potential', 'Economic_Feasibility'), ('CH4_Rev', 'Economic_Feasibility'),
+        ('CH4_Odor_Impact', 'Social_Feasibility'),
         ('Environmental_Potential', 'Environmental_Feasibility'),
-        ('Main_Crop_Potential', 'Agronomic_Feasibility'), ('Rotation_Crops_Potential', 'Agronomic_Feasibility')
+        ('Main_Crop_Potential', 'Agronomic_Feasibility'), ('Rotation_Crops_Potential', 'Agronomic_Feasibility'),
+        
+        ('Technical_Feasibility', 'Overall_Feasibility'),
+        ('Economic_Feasibility', 'Overall_Feasibility'),
+        ('Social_Feasibility', 'Overall_Feasibility'),
+        ('Agronomic_Feasibility', 'Overall_Feasibility'),
+        ('Environmental_Feasibility', 'Overall_Feasibility'),
+        ('CH4_Land_Ownership', 'Overall_Feasibility'),
+        ('CH4_Successor_Planning', 'Overall_Feasibility')
     ])
 
-    # Assign states for CH4 Network Nodes
+    # Assign base structural distribution states for CH4 Network Nodes
     cpd_ch4_pol = TabularCPD('CH4_Pol', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_per = TabularCPD('CH4_Per', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_sub = TabularCPD('CH4_Sub', 3, [[0.33], [0.34], [0.33]])
@@ -174,6 +183,9 @@ def initialize_system():
     cpd_ch4_env_pot = TabularCPD('Environmental_Potential', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_main_crop = TabularCPD('Main_Crop_Potential', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_rot_crop = TabularCPD('Rotation_Crops_Potential', 3, [[0.33], [0.34], [0.33]])
+    cpd_ch4_odor = TabularCPD('CH4_Odor_Impact', 5, [[0.2], [0.2], [0.2], [0.2], [0.2]])
+    cpd_ch4_own = TabularCPD('CH4_Land_Ownership', 3, [[0.33], [0.34], [0.33]])
+    cpd_ch4_suc = TabularCPD('CH4_Successor_Planning', 3, [[0.33], [0.34], [0.33]])
 
     ch4_gov_matrix = []
     for p in [0,1,2]:
@@ -201,14 +213,19 @@ def initialize_system():
     cpd_ch4_eco_feas = TabularCPD('Economic_Feasibility', 3, np.array(ch4_eco_matrix).T.tolist(), 
                                   evidence=['Economic_Potential', 'CH4_Rev'], evidence_card=[3,3])
 
+    ch4_soc_matrix = []
+    for odor in [0,1,2,3,4]: 
+        social_score = 1.0 - (odor/4.0) 
+        ch4_soc_matrix.append([1.0-social_score, social_score*0.3, social_score*0.7])
+    cpd_ch4_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(ch4_soc_matrix).T.tolist(), evidence=['CH4_Odor_Impact'], evidence_card=[5])
+
     ch4_env_matrix = []
     for env_pot in [0,1,2]:
         combined = env_pot/2.0
-        env_matrix.append([1.0-combined, combined*0.2, combined*0.8])
-    cpd_ch4_env_feas = TabularCPD('Environmental_Feasibility', 3, np.array(env_matrix).T.tolist(), 
+        ch4_env_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+    cpd_ch4_env_feas = TabularCPD('Environmental_Feasibility', 3, np.array(ch4_env_matrix).T.tolist(), 
                                   evidence=['Environmental_Potential'], evidence_card=[3])
 
-    # Dynamic Agronomic CPD Matrix driven explicitly by CH4_Har_Cha matrix lines[cite: 4]
     ch4_agro_matrix = []
     for main_c in [0,1,2]:
         for rot_c in [0,1,2]:
@@ -217,8 +234,25 @@ def initialize_system():
     cpd_ch4_agro_feas = TabularCPD('Agronomic_Feasibility', 3, np.array(ch4_agro_matrix).T.tolist(),
                                    evidence=['Main_Crop_Potential', 'Rotation_Crops_Potential'], evidence_card=[3,3])
 
+    ch4_overall_matrix = []
+    for t in [0,1,2]:      
+        for ec in [0,1,2]: 
+            for s in [0,1,2]:  
+                for a in [0,1,2]:  
+                    for en in [0,1,2]: 
+                        for o in [0,1,2]:  
+                            for su in [0,1,2]: 
+                                score = (t*2.0 + ec*2.0 + s*1.0 + a*2.0 + en*1.5 + o*1.0 + su*1.0) / 10.5
+                                ch4_overall_matrix.append([1.0 - score, score * 0.25, score * 0.75])
+                                
+    cpd_ch4_overall = TabularCPD('Overall_Feasibility', 3, np.array(ch4_overall_matrix).T.tolist(),
+                             evidence=['Technical_Feasibility', 'Economic_Feasibility', 'Social_Feasibility', 
+                                       'Agronomic_Feasibility', 'Environmental_Feasibility', 'CH4_Land_Ownership', 'CH4_Successor_Planning'],
+                             evidence_card=[3, 3, 3, 3, 3, 3, 3])
+
     model_ch4.add_cpds(cpd_ch4_pol, cpd_ch4_per, cpd_ch4_sub, cpd_ch4_rev, cpd_ch4_fee, cpd_ch4_eco_pot, cpd_ch4_env_pot,
-                       cpd_ch4_main_crop, cpd_ch4_rot_crop, cpd_ch4_gov, cpd_ch4_tech, cpd_ch4_eco_feas, cpd_ch4_env_feas, cpd_ch4_agro_feas)
+                       cpd_ch4_main_crop, cpd_ch4_rot_crop, cpd_ch4_odor, cpd_ch4_own, cpd_ch4_suc,
+                       cpd_ch4_gov, cpd_ch4_tech, cpd_ch4_eco_feas, cpd_ch4_soc_feas, cpd_ch4_env_feas, cpd_ch4_agro_feas, cpd_ch4_overall)
     model_ch4.check_model()
     bbn_ch4_model = model_ch4
 
@@ -231,11 +265,14 @@ async def generate_report(data: dict):
     continuity = data.get("continuity", "")
     state_map = {"Negative": 0, "Neutral": 1, "Positive": 2}
     
-    # Global return arrays
     scores_raw = {}
     swot_strengths = []
     swot_weaknesses = []
     
+    # Common Parameters
+    mapped_ownership = 2 if ownership == "Own" else (1 if "Share" in ownership or "Lease" in ownership else 0)
+    mapped_successor = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
+
     # ====================================================
     # EXECUTION BRANCH 1: AGRIVOLTAICS ENGINE
     # ====================================================
@@ -288,28 +325,35 @@ async def generate_report(data: dict):
             net_impact = ((annual_energy_production_kwh * 20.0) - (actual_kwh_offset * float(country_row['Gri_Car'].values[0]))) / annual_energy_production_kwh
             apv_evidence['Environmental_Potential'] = 0 if net_impact > 10.0 else (1 if -10.0 <= net_impact <= 10.0 else 2)
 
-            apv_evidence['Land_Ownership'] = 2 if ownership == "Own" else (1 if "Share" in ownership or "Lease" in ownership else 0)
-            apv_evidence['Successor_Planning'] = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
+            apv_evidence['Land_Ownership'] = mapped_ownership
+            apv_evidence['Successor_Planning'] = mapped_successor
 
             inference_apv = VariableElimination(bbn_apv_model)
             overall_apv = inference_apv.query(variables=['Overall_Feasibility'], evidence=apv_evidence)
             tech_apv = inference_apv.query(variables=['Technical_Feasibility'], evidence=apv_evidence)
             eco_apv = inference_apv.query(variables=['Economic_Feasibility'], evidence=apv_evidence)
+            soc_apv = inference_apv.query(variables=['Social_Feasibility'], evidence=apv_evidence)
+            env_apv = inference_apv.query(variables=['Environmental_Feasibility'], evidence=apv_evidence)
+            agro_apv = inference_apv.query(variables=['Agronomic_Feasibility'], evidence=apv_evidence)
             
             scores_raw["overall"] = int(overall_apv.values[2] * 100)
             scores_raw["technical"] = int(tech_apv.values[2] * 100)
             scores_raw["economic"] = int(eco_apv.values[2] * 100)
+            scores_raw["socio_economic"] = int(eco_apv.values[2] * 100)
+            scores_raw["social"] = int(soc_apv.values[2] * 100)
+            scores_raw["environmental"] = int(env_apv.values[2] * 100)
+            scores_raw["agronomic"] = int(agro_apv.values[2] * 100)
             
             swot_strengths.append(f"High Local Solar Density sizing footprint matching {round(installed_capacity_kwp, 1)} kWp.")
             if net_impact < -10.0:
                 swot_strengths.append("Significant solar grid greenhouse gas savings offset expected.")
 
     # ====================================================
-    # EXECUTION BRANCH 2: BIOGAS ENGINE (CH4)
+    # EXECUTION BRANCH 2: BIOGAS ENGINE (CH4) - NATIVE BBN INFERENCE
     # ====================================================
     if focus in ["Biogas", "Both"]:
         total_biogas_potential_nm3 = 0.0
-        total_feedstock_input_tonnes = 0.0  # Combined mass tracker for digestate
+        total_feedstock_input_tonnes = 0.0 
         biogas_data = data.get("biogas", {})
         selected_livestock = biogas_data.get("selectedLivestock", [])
         herd_details = biogas_data.get("herdDetails", {})
@@ -333,7 +377,7 @@ async def generate_report(data: dict):
                 total_biogas_potential_nm3 += animal_potential
                 total_feedstock_input_tonnes += (count * fresh_manure_per_year)
 
-        # Track main crop vs rotational profiles
+        # Track crop production profiles
         max_crop_yield_nm3 = 0.0
         crop_tonnes = biogas_data.get("cropTonnes", {})
         for crop_name, tonnes in crop_tonnes.items():
@@ -353,12 +397,12 @@ async def generate_report(data: dict):
 
         ch4_evidence = {}
         
-        # Discretize Feedstock Potential[cite: 6]
+        # Discretize Feedstock Input Node
         if total_biogas_potential_nm3 > 1500000: ch4_evidence['Feedstock_Potential'] = 2
         elif total_biogas_potential_nm3 >= 1000000: ch4_evidence['Feedstock_Potential'] = 1
         else: ch4_evidence['Feedstock_Potential'] = 0
 
-        # Load Country Governance and Costs Profile[cite: 6]
+        # Load Country Policies Profile Matrix
         ch4_country_row = df_ch4_main[df_ch4_main['Country'].str.lower() == country.lower()]
         if not ch4_country_row.empty:
             ch4_evidence['CH4_Pol'] = state_map.get(ch4_country_row['CH4_Pol'].values[0], 1)
@@ -366,22 +410,18 @@ async def generate_report(data: dict):
             ch4_evidence['CH4_Sub'] = state_map.get(ch4_country_row['CH4_Sub'].values[0], 1)
             ch4_evidence['CH4_Rev'] = state_map.get(ch4_country_row['CH4_Rev'].values[0], 1)
             
-            # ====================================================
-            # 2. DYNAMIC BIOGAS ECONOMIC POTENTIAL CALCULATIONS[cite: 4, 6]
-            # ====================================================
+            # Financial Ledger Sizing Metrics
             resources_input = data.get("resources", {})
             user_elec_volume = float(resources_input.get("electricity", {}).get("value") or 0)
             user_gas_cost = float(resources_input.get("gas", {}).get("cost") or 0)
             user_fert_volume = float(resources_input.get("fertilizer", {}).get("value") or 0)
             user_fert_cost = float(resources_input.get("fertilizer", {}).get("cost") or 0)
             
-            # Sizing Engine Step (LHV = 9.97, Availability = 8000, Lifetime = 15)[cite: 4]
             total_annual_energy_kwh = total_biogas_potential_nm3 * 9.97
             calculated_kw_capacity = total_annual_energy_kwh / 8000.0
             annual_electricity_produced_kwh = total_annual_energy_kwh * 0.35
             annual_heat_produced_kwh = total_annual_energy_kwh * 0.50
             
-            # Tiered Investment Logic[cite: 4]
             if calculated_kw_capacity < 1000.0:
                 capex = calculated_kw_capacity * 7500.0
                 annual_opex = (annual_electricity_produced_kwh / 1000.0) * 30.0
@@ -393,8 +433,6 @@ async def generate_report(data: dict):
                 annual_opex = (annual_electricity_produced_kwh / 1000.0) * 20.0
                 
             ch4_lifecycle_cost = capex + (annual_opex * 15.0)
-            
-            # Financial Offsets Calculations[cite: 4]
             db_electricity_price_kwh = float(ch4_country_row['Ele_Cos'].values[0]) / 100.0
             offset_electricity_kwh = min(annual_electricity_produced_kwh, user_elec_volume)
             annual_electricity_savings = offset_electricity_kwh * db_electricity_price_kwh
@@ -405,45 +443,34 @@ async def generate_report(data: dict):
             ch4_lifecycle_savings = (annual_electricity_savings + annual_gas_savings + annual_fertilizer_savings) * 15.0
             ch4_roi = ((ch4_lifecycle_savings - ch4_lifecycle_cost) / ch4_lifecycle_cost * 100.0) if ch4_lifecycle_cost > 0 else 0.0
             
-            # Discretize into CH4_Eco_Pot[cite: 7]
-            if ch4_roi > 200.0: ch4_evidence['Economic_Potential'] = 2
-            elif ch4_roi >= 50.0: ch4_evidence['Economic_Potential'] = 2
+            if ch4_roi > 50.0: ch4_evidence['Economic_Potential'] = 2
             elif ch4_roi >= -25.0: ch4_evidence['Economic_Potential'] = 1
-            elif ch4_roi >= -50.0: ch4_evidence['Economic_Potential'] = 0
             else: ch4_evidence['Economic_Potential'] = 0
 
-            # ====================================================
-            # 3. DYNAMIC BIOGAS ENVIRONMENTAL ACCOUNTING LOOP[cite: 4]
-            # ====================================================
+            # Environmental Impact Modeling
             digestate_produced_tonnes = total_feedstock_input_tonnes * 0.9
             offset_fertilizer_tonnes = min(digestate_produced_tonnes, user_fert_volume)
             
-            # Carbon accounting math (Mineral replacement footprint placeholder = 3.5)[cite: 4]
             fertilizer_emissions_avoided_g = offset_fertilizer_tonnes * 3.5 * 1000000.0
             electricity_emissions_avoided_g = offset_electricity_kwh * float(ch4_country_row['Gri_Car'].values[0])
             natural_gas_emissions_avoided_g = annual_heat_produced_kwh * 202.0
             biogas_embodied_emissions_g = annual_electricity_produced_kwh * 220.0
             
-            # Balance Net Lifecycle Greenhouse Gas Profile
             total_avoided_g = electricity_emissions_avoided_g + natural_gas_emissions_avoided_g + fertilizer_emissions_avoided_g
             ch4_net_impact_g_kwh = (biogas_embodied_emissions_g - total_avoided_g) / annual_electricity_produced_kwh if annual_electricity_produced_kwh > 0 else 0.0
             
-            # Discretize into BBN node states matching CH4_Env_Pot thresholds[cite: 7]
-            if ch4_net_impact_g_kwh < -30.0: ch4_evidence['Environmental_Potential'] = 2
-            elif ch4_net_impact_g_kwh <= -10.0: ch4_evidence['Environmental_Potential'] = 2
+            if ch4_net_impact_g_kwh < -10.0: ch4_evidence['Environmental_Potential'] = 2
             elif ch4_net_impact_g_kwh <= 10.0: ch4_evidence['Environmental_Potential'] = 1
-            elif ch4_net_impact_g_kwh <= 30.0: ch4_evidence['Environmental_Potential'] = 0
             else: ch4_evidence['Environmental_Potential'] = 0
 
-        # ====================================================
-        # 4. DYNAMIC BIOGAS AGRONOMIC FEASIBILITY LOOP[cite: 4]
-        # ====================================================
-        # Discretize Main Crop Potential scaling the same as CH4_Pro_Pot thresholds[cite: 4]
+        # Odor proxy discretization mapping for Biogas Social node
+        ch4_evidence['CH4_Odor_Impact'] = min(4, int(total_feedstock_input_tonnes // 2000))
+
+        # Agronomic Node Assignment Engine
         if max_crop_yield_nm3 > 1500000: ch4_evidence['Main_Crop_Potential'] = 2
         elif max_crop_yield_nm3 >= 1000000: ch4_evidence['Main_Crop_Potential'] = 1
         else: ch4_evidence['Main_Crop_Potential'] = 0
 
-        # Calculate rotational schedules average yield constants dynamically[cite: 4]
         rotation_crops_list = biogas_data.get("selectedCrops", [])
         total_rotational_potential_yield = 0.0
         valid_crop_lookups = 0
@@ -451,7 +478,6 @@ async def generate_report(data: dict):
         for rot_crop in rotation_crops_list:
             row_data = df_ch4_the_pot[df_ch4_the_pot.iloc[:, 0] == rot_crop]
             if not row_data.empty:
-                # Average potential of the crops in rotation schedule[cite: 4]
                 vs_factor = float(row_data.iloc[0, 1] or 0)
                 yield_factor = float(row_data.iloc[0, 2] or 0)
                 total_rotational_potential_yield += (vs_factor * yield_factor)
@@ -459,28 +485,38 @@ async def generate_report(data: dict):
                 
         avg_rotation_yield = (total_rotational_potential_yield / valid_crop_lookups) if valid_crop_lookups > 0 else 0.0
         
-        # Map average crop parameters using standardized CH4_Pro_Pot scale parameters[cite: 4]
-        if avg_rotation_yield > 400.0: ch4_evidence['Rotation_Crops_Potential'] = 2        # High potential profiles[cite: 4]
-        elif avg_rotation_yield >= 200.0: ch4_evidence['Rotation_Crops_Potential'] = 1     # Medium potential profiles[cite: 4]
-        else: ch4_evidence['Rotation_Crops_Potential'] = 0                                 # Low potential profiles[cite: 4]
+        if avg_rotation_yield > 400.0: ch4_evidence['Rotation_Crops_Potential'] = 2 
+        elif avg_rotation_yield >= 200.0: ch4_evidence['Rotation_Crops_Potential'] = 1 
+        else: ch4_evidence['Rotation_Crops_Potential'] = 0 
 
+        # Structural variables context binding
+        ch4_evidence['CH4_Land_Ownership'] = mapped_ownership
+        ch4_evidence['CH4_Successor_Planning'] = mapped_successor
+
+        # Query dynamic execution matrix through inferential pipeline
         inference_ch4 = VariableElimination(bbn_ch4_model)
+        overall_ch4 = inference_ch4.query(variables=['Overall_Feasibility'], evidence=ch4_evidence)
         tech_ch4 = inference_ch4.query(variables=['Technical_Feasibility'], evidence=ch4_evidence)
         eco_ch4 = inference_ch4.query(variables=['Economic_Feasibility'], evidence=ch4_evidence)
+        soc_ch4 = inference_ch4.query(variables=['Social_Feasibility'], evidence=ch4_evidence)
         env_ch4 = inference_ch4.query(variables=['Environmental_Feasibility'], evidence=ch4_evidence)
         agro_ch4 = inference_ch4.query(variables=['Agronomic_Feasibility'], evidence=ch4_evidence)
         
         if focus == "Biogas":
-            scores_raw["overall"] = int(((tech_ch4.values[2] * 100) + (eco_ch4.values[2] * 100) + (env_ch4.values[2] * 100) + (agro_ch4.values[2] * 100)) / 4)
+            scores_raw["overall"] = int(overall_ch4.values[2] * 100)
             scores_raw["technical"] = int(tech_ch4.values[2] * 100)
             scores_raw["economic"] = int(eco_ch4.values[2] * 100)
             scores_raw["socio_economic"] = int(eco_ch4.values[2] * 100)
+            scores_raw["social"] = int(soc_ch4.values[2] * 100)
             scores_raw["environmental"] = int(env_ch4.values[2] * 100)
             scores_raw["agronomic"] = int(agro_ch4.values[2] * 100)
         else:
+            # Dynamic cross-network mean integration for combined mode assessments
+            scores_raw["overall"] = int(((scores_raw.get("overall", 50)) + (overall_ch4.values[2] * 100)) / 2)
             scores_raw["technical"] = int(((scores_raw.get("technical", 50)) + (tech_ch4.values[2] * 100)) / 2)
             scores_raw["economic"] = int(((scores_raw.get("economic", 50)) + (eco_ch4.values[2] * 100)) / 2)
             scores_raw["socio_economic"] = scores_raw["economic"]
+            scores_raw["social"] = int(((scores_raw.get("social", 50)) + (soc_ch4.values[2] * 100)) / 2)
             scores_raw["environmental"] = int(((scores_raw.get("environmental", 50)) + (env_ch4.values[2] * 100)) / 2)
             scores_raw["agronomic"] = int(((scores_raw.get("agronomic", 50)) + (agro_ch4.values[2] * 100)) / 2)
 
@@ -493,17 +529,9 @@ async def generate_report(data: dict):
         if ch4_net_impact_g_kwh < -10.0:
             swot_strengths.append(f"Substantial climate loop tracking benefits: generated organic digestate replaces up to {round(offset_fertilizer_tonnes, 1)} tonnes of synthetic mineral input compounds.")
         elif ch4_net_impact_g_kwh > 10.0:
-            swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets compared to your regional baseline electricity grid.")
+            swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets.")
 
-    # Fallback default fillers to render template slots safely
-    scores_raw.setdefault("overall", 65)
-    scores_raw.setdefault("technical", 70)
-    scores_raw.setdefault("economic", 55)
-    scores_raw.setdefault("socio_economic", 55)
-    scores_raw.setdefault("social", 60)
-    scores_raw.setdefault("agronomic", 65)
-    scores_raw.setdefault("environmental", 72)
-
+    # Status indicators mappings
     def get_light(score):
         if score < 40: return "🔴"
         elif score > 70: return "🟢"
@@ -530,6 +558,7 @@ async def generate_report(data: dict):
         <p>Overall Feasibility Indicator Status: {{ lights.overall }}</p>
         <p>Technical Aspect: {{ lights.technical }}</p>
         <p>Socio-Economic Aspect: {{ lights.socio_economic }}</p>
+        <p>Social Aspect: {{ lights.social }}</p>
         <p>Environmental Aspect: {{ lights.environmental }}</p>
         <p>Agronomic Aspect: {{ lights.agronomic }}</p>
     </body>
