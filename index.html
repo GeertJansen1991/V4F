@@ -310,10 +310,13 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-                            <input type="number" v-model="formData.agrivoltaics.maxWidth" placeholder="Max Width (m)" class="p-3 bg-v4f-bg border rounded-lg">
-                            <input type="number" v-model="formData.agrivoltaics.maxHeight" placeholder="Max Height (m)" class="p-3 bg-v4f-bg border rounded-lg">
-                            <input type="number" v-model="formData.agrivoltaics.turningRadius" placeholder="Radius (m)" class="p-3 bg-v4f-bg border rounded-lg">
+                        <div class="pt-4 space-y-2">
+                            <label class="block font-bold text-v4f-neutral text-sm">Current farm equipment dimensions:</label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <input type="number" v-model="formData.agrivoltaics.maxWidth" placeholder="Max Width (m)" class="p-3 bg-v4f-bg border rounded-lg">
+                                <input type="number" v-model="formData.agrivoltaics.maxHeight" placeholder="Max Height (m)" class="p-3 bg-v4f-bg border rounded-lg">
+                                <input type="number" v-model="formData.agrivoltaics.turningRadius" placeholder="Radius (m)" class="p-3 bg-v4f-bg border rounded-lg">
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -673,7 +676,6 @@
                                                 !!agri.plotLandUse && 
                                                 !!agri.terrain && 
                                                 !!agri.slopeDirection && 
-                                                !!agri.obstacles &&
                                                 !!agri.turningRadius;
 
                         const isCropFarmer = activities.some(a => a.includes('arable') || a.includes('perennial'));
