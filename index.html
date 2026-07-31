@@ -375,6 +375,23 @@
                         </div>
                     </section>
 
+                    <!-- Crop Rotation Schedule Checkboxes -->
+                    <section class="space-y-4 pt-6 border-t border-slate-100">
+                        <h3 class="text-xl font-bold text-v4f-base">Crop Rotation Schedule</h3>
+                        <label class="block font-bold text-v4f-neutral text-sm">
+                            Which of the following crops are included in your regular multi-year crop rotation schedule? (Select all that apply)
+                        </label>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button v-for="crop in agriCropOptions" :key="'rot-'+crop" type="button"
+                                    @click="toggleSelection(formData.biogas.selectedCrops, crop)"
+                                    :class="formData.biogas.selectedCrops.includes(crop) ? 'bg-v4f-base text-white border-v4f-base' : 'bg-white border-slate-200 text-v4f-neutral'"
+                                    class="p-3 border-2 rounded-xl text-left text-xs font-bold transition-all hover:border-v4f-base">
+                                🔄 {{ crop }}
+                            </button>
+                        </div>
+                    </section>
+
                     <section class="space-y-6 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Energy & Infrastructure</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
