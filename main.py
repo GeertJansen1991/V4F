@@ -311,9 +311,33 @@ async def generate_report(data: dict):
             roi = ((lifecycle_savings - lifecycle_cost) / lifecycle_cost) * 100 if lifecycle_cost > 0 else 0
             apv_evidence['Economic_Potential'] = 0 if roi < -25 else (1 if roi < 50 else 2)
 
+            if available_ha <= 0 or installed_capacity_kwp <= 0:
+                apv_evidence['Energy_Potential'] = 0
+                apv_evidence['Economic_Potential'] = 0
+                apv_evidence['Environmental_Potential'] = 0
+                apv_evidence['Crop_Yield_Impact'] = 0
+                apv_evidence['Water_Demand_Impact'] = 0
+                apv_evidence['Machinery_Compatibility'] = 0
+            
             apv_evidence['Visual_Impact'] = min(4, int(available_ha // 2))
 
-            crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower().str.contains(crop_choice.lower()[:5])]
+            # Clean and sanitize the user-submitted selection string
+            crop_clean = crop_choice.strip().lower()
+            
+            # Execute strict string matching loop
+            crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower() == crop_clean]
+
+            # If strict matching fails, execute a partial fallback check
+            if crop_match.empty:
+                crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower().str.contains("cereal")]
+                
+            # Final check to prevent template layout engine runtime errors
+            if crop_match.empty:
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Spreadsheet Resolution Error: Crop type '{crop_choice}' cannot be resolved."
+                )
+            
             raw_yield_impact = crop_match[climate_column].values[0] if not crop_match.empty else "Neutral"
             raw_water_impact = df_apv_wat_dem[climate_column].values[0]
             
@@ -339,7 +363,6 @@ async def generate_report(data: dict):
             scores_raw["overall"] = int(overall_apv.values[2] * 100)
             scores_raw["technical"] = int(tech_apv.values[2] * 100)
             scores_raw["economic"] = int(eco_apv.values[2] * 100)
-            scores_raw["socio_economic"] = int(eco_apv.values[2] * 100)
             scores_raw["social"] = int(soc_apv.values[2] * 100)
             scores_raw["environmental"] = int(env_apv.values[2] * 100)
             scores_raw["agronomic"] = int(agro_apv.values[2] * 100)
@@ -396,6 +419,8 @@ async def generate_report(data: dict):
                         max_crop_yield_nm3 = crop_yield_nm3
 
         ch4_evidence = {}
+        ch4_roi = 0.0
+        ch4_net_impact_g_kwh = 0.0
         
         # Discretize Feedstock Input Node
         if total_biogas_potential_nm3 > 1500000: ch4_evidence['Feedstock_Potential'] = 2
@@ -492,7 +517,15 @@ async def generate_report(data: dict):
         # Structural variables context binding
         ch4_evidence['CH4_Land_Ownership'] = mapped_ownership
         ch4_evidence['CH4_Successor_Planning'] = mapped_successor
-
+        if total_biogas_potential_nm3 <= 0:
+            ch4_evidence['Feedstock_Potential'] = 0
+            ch4_evidence['Economic_Potential'] = 0
+            ch4_evidence['Environmental_Potential'] = 0
+            ch4_evidence['Main_Crop_Potential'] = 0
+            ch4_evidence['Rotation_Crops_Potential'] = 0
+            ch4_net_impact_g_kwh = 999.0  # Safe high footprint penalty value
+            ch4_roi = -100.0
+            
         # Query dynamic execution matrix through inferential pipeline
         inference_ch4 = VariableElimination(bbn_ch4_model)
         overall_ch4 = inference_ch4.query(variables=['Overall_Feasibility'], evidence=ch4_evidence)
@@ -506,20 +539,26 @@ async def generate_report(data: dict):
             scores_raw["overall"] = int(overall_ch4.values[2] * 100)
             scores_raw["technical"] = int(tech_ch4.values[2] * 100)
             scores_raw["economic"] = int(eco_ch4.values[2] * 100)
-            scores_raw["socio_economic"] = int(eco_ch4.values[2] * 100)
             scores_raw["social"] = int(soc_ch4.values[2] * 100)
             scores_raw["environmental"] = int(env_ch4.values[2] * 100)
             scores_raw["agronomic"] = int(agro_ch4.values[2] * 100)
         else:
-            # Dynamic cross-network mean integration for combined mode assessments
-            scores_raw["overall"] = int(((scores_raw.get("overall", 50)) + (overall_ch4.values[2] * 100)) / 2)
-            scores_raw["technical"] = int(((scores_raw.get("technical", 50)) + (tech_ch4.values[2] * 100)) / 2)
-            scores_raw["economic"] = int(((scores_raw.get("economic", 50)) + (eco_ch4.values[2] * 100)) / 2)
-            scores_raw["socio_economic"] = scores_raw["economic"]
-            scores_raw["social"] = int(((scores_raw.get("social", 50)) + (soc_ch4.values[2] * 100)) / 2)
-            scores_raw["environmental"] = int(((scores_raw.get("environmental", 50)) + (env_ch4.values[2] * 100)) / 2)
-            scores_raw["agronomic"] = int(((scores_raw.get("agronomic", 50)) + (agro_ch4.values[2] * 100)) / 2)
-
+            # Focus is explicitly "Both". Blend frameworks natively with strict checks.
+            for key in ["overall", "technical", "economic", "social", "environmental", "agronomic"]:
+                if key not in scores_raw:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Inference Engine Error: Combined mode execution failed. Expected Agrivoltaics data point '{key}' was not found before cross-network merge."
+                    )
+            
+            # Safe calculation of mathematical means using real telemetry from both models
+            scores_raw["overall"] = int((scores_raw["overall"] + (overall_ch4.values[2] * 100)) / 2)
+            scores_raw["technical"] = int((scores_raw["technical"] + (tech_ch4.values[2] * 100)) / 2)
+            scores_raw["economic"] = int((scores_raw["economic"] + (eco_ch4.values[2] * 100)) / 2)
+            scores_raw["social"] = int((scores_raw["social"] + (soc_ch4.values[2] * 100)) / 2)
+            scores_raw["environmental"] = int((scores_raw["environmental"] + (env_ch4.values[2] * 100)) / 2)
+            scores_raw["agronomic"] = int((scores_raw["agronomic"] + (agro_ch4.values[2] * 100)) / 2)
+            
         swot_strengths.append(f"Calculated Biogas Loading Asset: {round(total_biogas_potential_nm3, 1)} Nm3/yr available.")
         if ch4_roi > 50.0:
             swot_strengths.append(f"Highly positive Biogas return profile tracking a long-term ROI of {round(ch4_roi, 1)}%.")
@@ -531,6 +570,16 @@ async def generate_report(data: dict):
         elif ch4_net_impact_g_kwh > 10.0:
             swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets.")
 
+    # Ensure all required metrics have been computed cleanly by the active inference engines
+    required_metrics = ["overall", "technical", "economic", "social", "environmental", "agronomic"]
+    missing_metrics = [metric for metric in required_metrics if metric not in scores_raw]
+
+    if missing_metrics:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Inference Engine Error: Was not able to compute full probabilistic metrics. Missing components: {', '.join(missing_metrics)}"
+        )
+
     # Status indicators mappings
     def get_light(score):
         if score < 40: return "🔴"
@@ -539,15 +588,45 @@ async def generate_report(data: dict):
 
     status_lights = {k: get_light(v) for k, v in scores_raw.items()}
 
+    # 1. Initialize adaptive layout containers
+    swot_opportunities = []
+    swot_threats = []
+    dynamic_recommendations = []
+
+    # 2. Append Agrivoltaics specific insights dynamically
+    if focus in ["Agrivoltaics", "Both"]:
+        swot_opportunities.append("Optimize dual-land usage yields via solar tracking system profiles.")
+        swot_threats.append("Local solar infrastructure grid curtailment risks.")
+        
+        if scores_raw.get("agronomic", 100) < 40:
+            dynamic_recommendations.append("Agrivoltaics Warning: Prioritize shade-tolerant cultivation crop varieties (e.g., leafy greens, root vegetables) to counteract low agronomic performance.")
+        if scores_raw.get("technical", 100) < 40:
+            dynamic_recommendations.append("Agrivoltaics Action: Increase PV panel clearance profiles to alleviate machinery structural height constraints.")
+
+    # 3. Append Biogas specific insights dynamically
+    if focus in ["Biogas", "Both"]:
+        swot_opportunities.append("Utilize processed organic digestate internally to systematically phase out synthetic mineral fertilizer expenditures.")
+        swot_threats.append("Fluctuations in regional organic feedstock supply chains.")
+        
+        if scores_raw.get("environmental", 100) < 40:
+            dynamic_recommendations.append("Biogas Warning: Implement advanced scrubbers or air-tight containment cells to alleviate odor or regional air baseline impacts.")
+        if scores_raw.get("economic", 100) < 40:
+            dynamic_recommendations.append("Biogas Action: Evaluate localized co-digestion partnerships to increase methane operational yield densities.")
+
+    # 4. Defensive fallback for highly successful audits
+    if not dynamic_recommendations:
+        dynamic_recommendations.append("All structural parameters are stable. Continually audit operations against local baseline parameters.")
+
+    # 5. Compile balanced SWOT ledger
     swot = {
         "strengths": swot_strengths,
         "weaknesses": swot_weaknesses if swot_weaknesses else ["No structural workflows hazard metrics observed."],
-        "opportunities": ["Integrated farm energy microgrid optimizations."],
-        "threats": ["Grid capacity headroom constraints."]
+        "opportunities": swot_opportunities,
+        "threats": swot_threats
     }
 
-    recommendations = ["Review spatial tracking parameters relative to regional advisory guidelines."]
-
+    # Re-assign variables for template variables matching engine mapping
+    recommendations = dynamic_recommendations
     # --- PDF ENGINE RENDERING ---
     html_template = """
     <html>
@@ -557,7 +636,7 @@ async def generate_report(data: dict):
         <p>Location: {{ loc }}</p>
         <p>Overall Feasibility Indicator Status: {{ lights.overall }}</p>
         <p>Technical Aspect: {{ lights.technical }}</p>
-        <p>Socio-Economic Aspect: {{ lights.socio_economic }}</p>
+        <p>Economic Aspect: {{ lights.economic }}</p>
         <p>Social Aspect: {{ lights.social }}</p>
         <p>Environmental Aspect: {{ lights.environmental }}</p>
         <p>Agronomic Aspect: {{ lights.agronomic }}</p>
