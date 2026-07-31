@@ -12,7 +12,6 @@ import os
 
 app = FastAPI()
 
-# Enable CORS for frontend communication across different origins/domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,11 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Render paths are relative to the root directory where the application runs
 EXCEL_PATH = "APV_DST (Clean).xlsx"
 BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
 
-# Global placeholders for startup caching - Explicitly Named!
+# Global placeholders for startup caching
 df_apv_main, df_apv_cro_yld, df_apv_wat_dem = None, None, None
 df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha = None, None, None, None
 
@@ -55,7 +53,7 @@ def initialize_system():
     df_ch4_har_cha = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_Har_Cha')
     
     # ====================================================
-    # NETWORK 1: AGRIVOLTAICS GRAPH (APV)
+    # 1: AGRIVOLTAICS (APV)
     # ====================================================
     model_apv = DiscreteBayesianNetwork([
         ('APV_Pol', 'Governance'), ('APV_Per', 'Governance'), ('APV_Sub', 'Governance'), ('APV_Rev', 'Governance'),
@@ -154,7 +152,7 @@ def initialize_system():
     bbn_apv_model = model_apv
 
     # ====================================================
-    # NETWORK 2: BIOGAS GRAPH (CH4) - PROBABILISTIC FEASIBILITIES
+    # 2: BIOGAS GRAPH (CH4)
     # ====================================================
     model_ch4 = DiscreteBayesianNetwork([
         ('CH4_Pol', 'CH4_Governance'), ('CH4_Per', 'CH4_Governance'), ('CH4_Sub', 'CH4_Governance'), ('CH4_Rev', 'CH4_Governance'),
@@ -173,7 +171,7 @@ def initialize_system():
         ('CH4_Successor_Planning', 'Overall_Feasibility')
     ])
 
-    # Assign base structural distribution states for CH4 Network Nodes
+    # Assign core static distribution states for CH4
     cpd_ch4_pol = TabularCPD('CH4_Pol', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_per = TabularCPD('CH4_Per', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_sub = TabularCPD('CH4_Sub', 3, [[0.33], [0.34], [0.33]])
@@ -274,7 +272,7 @@ async def generate_report(data: dict):
     mapped_successor = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
 
     # ====================================================
-    # EXECUTION BRANCH 1: AGRIVOLTAICS ENGINE
+    # 1: AGRIVOLTAICS ENGINE
     # ====================================================
     if focus in ["Agrivoltaics", "Both"]:
         agri = data.get("agrivoltaics", {})
@@ -321,17 +319,13 @@ async def generate_report(data: dict):
             
             apv_evidence['Visual_Impact'] = min(4, int(available_ha // 2))
 
-            # Clean and sanitize the user-submitted selection string
             crop_clean = crop_choice.strip().lower()
             
-            # Execute strict string matching loop
             crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower() == crop_clean]
 
-            # If strict matching fails, execute a partial fallback check
             if crop_match.empty:
                 crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower().str.contains("cereal")]
                 
-            # Final check to prevent template layout engine runtime errors
             if crop_match.empty:
                 raise HTTPException(
                     status_code=404, 
@@ -372,8 +366,9 @@ async def generate_report(data: dict):
                 swot_strengths.append("Significant solar grid greenhouse gas savings offset expected.")
 
     # ====================================================
-    # EXECUTION BRANCH 2: BIOGAS ENGINE (CH4) - NATIVE BBN INFERENCE
+    # 2: BIOGAS ENGINE (CH4)
     # ====================================================
+
     if focus in ["Biogas", "Both"]:
         total_biogas_potential_nm3 = 0.0
         total_feedstock_input_tonnes = 0.0 
@@ -422,7 +417,6 @@ async def generate_report(data: dict):
         ch4_roi = 0.0
         ch4_net_impact_g_kwh = 0.0
         
-        # Discretize Feedstock Input Node
         if total_biogas_potential_nm3 > 1500000: ch4_evidence['Feedstock_Potential'] = 2
         elif total_biogas_potential_nm3 >= 1000000: ch4_evidence['Feedstock_Potential'] = 1
         else: ch4_evidence['Feedstock_Potential'] = 0
@@ -472,7 +466,7 @@ async def generate_report(data: dict):
             elif ch4_roi >= -25.0: ch4_evidence['Economic_Potential'] = 1
             else: ch4_evidence['Economic_Potential'] = 0
 
-            # Environmental Impact Modeling
+            # Environmental Impact
             digestate_produced_tonnes = total_feedstock_input_tonnes * 0.9
             offset_fertilizer_tonnes = min(digestate_produced_tonnes, user_fert_volume)
             
@@ -488,10 +482,10 @@ async def generate_report(data: dict):
             elif ch4_net_impact_g_kwh <= 10.0: ch4_evidence['Environmental_Potential'] = 1
             else: ch4_evidence['Environmental_Potential'] = 0
 
-        # Odor proxy discretization mapping for Biogas Social node
+        #  Social 
         ch4_evidence['CH4_Odor_Impact'] = min(4, int(total_feedstock_input_tonnes // 2000))
 
-        # Agronomic Node Assignment Engine
+        # Agronomic 
         if max_crop_yield_nm3 > 1500000: ch4_evidence['Main_Crop_Potential'] = 2
         elif max_crop_yield_nm3 >= 1000000: ch4_evidence['Main_Crop_Potential'] = 1
         else: ch4_evidence['Main_Crop_Potential'] = 0
@@ -514,7 +508,7 @@ async def generate_report(data: dict):
         elif avg_rotation_yield >= 200.0: ch4_evidence['Rotation_Crops_Potential'] = 1 
         else: ch4_evidence['Rotation_Crops_Potential'] = 0 
 
-        # Structural variables context binding
+        # context binding
         ch4_evidence['CH4_Land_Ownership'] = mapped_ownership
         ch4_evidence['CH4_Successor_Planning'] = mapped_successor
         if total_biogas_potential_nm3 <= 0:
@@ -523,10 +517,9 @@ async def generate_report(data: dict):
             ch4_evidence['Environmental_Potential'] = 0
             ch4_evidence['Main_Crop_Potential'] = 0
             ch4_evidence['Rotation_Crops_Potential'] = 0
-            ch4_net_impact_g_kwh = 999.0  # Safe high footprint penalty value
+            ch4_net_impact_g_kwh = 999.0  
             ch4_roi = -100.0
             
-        # Query dynamic execution matrix through inferential pipeline
         inference_ch4 = VariableElimination(bbn_ch4_model)
         overall_ch4 = inference_ch4.query(variables=['Overall_Feasibility'], evidence=ch4_evidence)
         tech_ch4 = inference_ch4.query(variables=['Technical_Feasibility'], evidence=ch4_evidence)
@@ -543,7 +536,6 @@ async def generate_report(data: dict):
             scores_raw["environmental"] = int(env_ch4.values[2] * 100)
             scores_raw["agronomic"] = int(agro_ch4.values[2] * 100)
         else:
-            # Focus is explicitly "Both". Blend frameworks natively with strict checks.
             for key in ["overall", "technical", "economic", "social", "environmental", "agronomic"]:
                 if key not in scores_raw:
                     raise HTTPException(
@@ -551,7 +543,6 @@ async def generate_report(data: dict):
                         detail=f"Inference Engine Error: Combined mode execution failed. Expected Agrivoltaics data point '{key}' was not found before cross-network merge."
                     )
             
-            # Safe calculation of mathematical means using real telemetry from both models
             scores_raw["overall"] = int((scores_raw["overall"] + (overall_ch4.values[2] * 100)) / 2)
             scores_raw["technical"] = int((scores_raw["technical"] + (tech_ch4.values[2] * 100)) / 2)
             scores_raw["economic"] = int((scores_raw["economic"] + (eco_ch4.values[2] * 100)) / 2)
@@ -570,7 +561,6 @@ async def generate_report(data: dict):
         elif ch4_net_impact_g_kwh > 10.0:
             swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets.")
 
-    # Ensure all required metrics have been computed cleanly by the active inference engines
     required_metrics = ["overall", "technical", "economic", "social", "environmental", "agronomic"]
     missing_metrics = [metric for metric in required_metrics if metric not in scores_raw]
 
@@ -588,12 +578,10 @@ async def generate_report(data: dict):
 
     status_lights = {k: get_light(v) for k, v in scores_raw.items()}
 
-    # 1. Initialize adaptive layout containers
     swot_opportunities = []
     swot_threats = []
     dynamic_recommendations = []
 
-    # 2. Append Agrivoltaics specific insights dynamically
     if focus in ["Agrivoltaics", "Both"]:
         swot_opportunities.append("Optimize dual-land usage yields via solar tracking system profiles.")
         swot_threats.append("Local solar infrastructure grid curtailment risks.")
@@ -603,7 +591,6 @@ async def generate_report(data: dict):
         if scores_raw.get("technical", 100) < 40:
             dynamic_recommendations.append("Agrivoltaics Action: Increase PV panel clearance profiles to alleviate machinery structural height constraints.")
 
-    # 3. Append Biogas specific insights dynamically
     if focus in ["Biogas", "Both"]:
         swot_opportunities.append("Utilize processed organic digestate internally to systematically phase out synthetic mineral fertilizer expenditures.")
         swot_threats.append("Fluctuations in regional organic feedstock supply chains.")
@@ -613,11 +600,10 @@ async def generate_report(data: dict):
         if scores_raw.get("economic", 100) < 40:
             dynamic_recommendations.append("Biogas Action: Evaluate localized co-digestion partnerships to increase methane operational yield densities.")
 
-    # 4. Defensive fallback for highly successful audits
     if not dynamic_recommendations:
         dynamic_recommendations.append("All structural parameters are stable. Continually audit operations against local baseline parameters.")
 
-    # 5. Compile balanced SWOT ledger
+    # Compile balanced SWOT ledger
     swot = {
         "strengths": swot_strengths,
         "weaknesses": swot_weaknesses if swot_weaknesses else ["No structural workflows hazard metrics observed."],
@@ -625,9 +611,10 @@ async def generate_report(data: dict):
         "threats": swot_threats
     }
 
-    # Re-assign variables for template variables matching engine mapping
     recommendations = dynamic_recommendations
-    # --- PDF ENGINE RENDERING ---
+
+    #  PDF ENGINE RENDERING
+
     html_template = """
     <html>
     <body>
