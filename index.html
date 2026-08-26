@@ -718,7 +718,6 @@
                                                 !!agri.turningRadius;
 
                         const isCropFarmer = activities.some(a => a.includes('arable') || a.includes('perennial'));
-                        const cropsValid = isCropFarmer ? (agri.currentCrops.length > 0 && !!agri.irrigation) : true;
                         const machineryValid = agri.maxWidth > 0 && agri.maxHeight > 0;
 
                         return foundationValid && cropsValid && machineryValid;
