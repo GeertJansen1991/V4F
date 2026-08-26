@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V4F Audit Tool - WUR</title>
+    <title>Value4Farm Audit Tool</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -85,7 +85,7 @@
             
             <div v-if="currentView === 'form' && currentStep > 1" class="mt-10 max-w-md mx-auto animate-fade-in">
                 <div class="flex justify-between items-end mb-2">
-                    <span class="text-xs font-bold text-v4f-neutral uppercase">Assessment Progress</span>
+                    <span class="text-xs font-bold text-v4f-neutral uppercase">Audit Progress</span>
                     <span class="text-lg font-black text-v4f-base">{{ progressPercentage }}%</span>
                 </div>
                 <div class="w-full bg-slate-200 rounded-full h-3">
@@ -96,16 +96,16 @@
         </header>
 
         <div class="bg-white p-10 rounded-2xl shadow-xl border border-slate-100">
-            <!-- Welcome View -->
+            <!-- Welcome Page -->
             <div v-if="currentView === 'welcome'" class="max-w-2xl mx-auto py-6 animate-fade-in text-center">
-                <h2 class="text-4xl font-black text-v4f-neutral mb-2">Welcome to the V4F Audit Tool</h2>
+                <h2 class="text-4xl font-black text-v4f-neutral mb-2">Welcome to the Value4Farm Audit Tool</h2>
                 <p class="text-sm text-v4f-neutral/80 uppercase tracking-wider font-semibold mb-8">
-                    Part of the Value4Farm Decision Support Framework (Grant No. 101116076)
+                    Part of the Value4Farm Decision Support Framework. This project has received funding from the European Union's Horizon Europe Research and Innovation programme under Grant Agreement No. 101116076 (VALUE4FARM)
                 </p>
                 
                 <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-left space-y-6 mb-8">
                     <p class="text-slate-600 leading-relaxed">
-                        This tool assesses the feasibility of combining energy production through <strong>Agrivoltaics and/or Biogas</strong> with food production. It provides a localized multi-criteria analysis based on environmental, financial, agronomic, social, and legislative aspects.
+                        See if combining solar panels, biogas, and farming works for your farm. By answering a series of questions, this tool audits the potential to implement solar eneryg and/or biogas at your farm, considering the legal, economic, agronomic, social, and environmental aspects and impacts. 
                     </p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -128,15 +128,15 @@
                         <ol class="space-y-3 text-sm text-slate-600">
                             <li class="flex gap-2">
                                 <span class="font-bold text-v4f-neutral">1. Learn:</span> 
-                                <span>Complete the introductory MOOC at <a href="#" class="text-v4f-base underline font-medium">XXXXXX</a> to understand the core concepts.</span>
+                                <span>Complete the introductory online course at <a href="#" class="text-v4f-base underline font-medium">https://www.futurelearn.com/courses/integrating-food-and-energy-production-on-farmland</a> to understand the core concepts.</span>
                             </li>
                             <li class="flex gap-2 bg-v4f-base/5 p-2 rounded-lg border border-v4f-base/20">
                                 <span class="font-bold text-v4f-base">2. Audit:</span> 
-                                <span>(Current Step) Evaluate your farm's unique spatial, technical, and resource compatibility.</span>
+                                <span>(Current Step) Evaluate your farm's compatibility.</span>
                             </li>
                             <li class="flex gap-2">
                                 <span class="font-bold text-v4f-neutral">3. Transition:</span> 
-                                <span>Access the implementation tool to find actionable deployment paths and local expert help.</span>
+                                <span>Access the implementation tool to find actionable deployment paths, examples, and local expert help.</span>
                             </li>
                         </ol>
                     </div>
@@ -158,10 +158,10 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <div class="info-tooltip">This choice determines which technical questions follow.</div>
+                            <div class="info-tooltip">This choice determines the relevant questions to ask in order to evaluate your farm's potential.</div>
                         </div>
                     </div>
-                    <p class="text-slate-500 font-medium">What are you interested in auditing for your farm?</p>
+                    <p class="text-slate-500 font-medium">Which technology are you interested in auditing for your farm?</p>
                     <div class="flex flex-col gap-4">
                         <button v-for="focus in ['Agrivoltaics', 'Biogas', 'Both']" 
                                 @click="formData.auditFocus = focus"
@@ -178,7 +178,7 @@
                     
                     <!-- Country Selection -->
                     <div class="relative">
-                        <label class="block font-bold text-v4f-neutral mb-2">Country:</label>
+                        <label class="block font-bold text-v4f-neutral mb-2">In which country is your farm located?</label>
                         <input type="text" v-model="searchQuery" @focus="showCountryDropdown = true" @blur="hideDropdownDelay"
                             placeholder="Start typing or search countries..." 
                             class="w-full p-4 bg-v4f-bg border border-slate-200 rounded-xl outline-v4f-base font-medium">
@@ -193,7 +193,7 @@
 
                     <!-- Farming Activities -->
                     <div>
-                        <label class="block font-bold text-v4f-neutral mb-3">Farming Activities (Select all that apply):</label>
+                        <label class="block font-bold text-v4f-neutral mb-3">What farming activities do you perform at your farm? (Select all that apply)</label>
                         <div class="flex flex-col gap-2">
                             <button v-for="act in activityOptions" @click="toggleActivity(act.label)"
                                     :class="formData.activities.includes(act.label) ? 'bg-v4f-base text-white border-v4f-base' : 'bg-white border-slate-200 text-v4f-neutral hover:border-v4f-base'"
@@ -205,7 +205,7 @@
 
                     <!-- Farm Ownership -->
                     <div>
-                        <label class="block font-bold text-v4f-neutral mb-2">Relationship with the land:</label>
+                        <label class="block font-bold text-v4f-neutral mb-2">What is the ownership structure of the land that you perform your farming activities on?</label>
                         <select v-model="formData.ownership" class="w-full p-4 bg-v4f-bg border border-slate-200 rounded-xl outline-v4f-base font-medium text-slate-700">
                             <option disabled value="">Select ownership type...</option>
                             <option value="Own">I own the land that I cultivate.</option>
@@ -217,7 +217,7 @@
 
                     <!-- Future Succession Plan -->
                     <div>
-                        <label class="block font-bold text-v4f-neutral mb-3">Farm's future plan:</label>
+                        <label class="block font-bold text-v4f-neutral mb-3">What is your farm's future plan?</label>
                         <div class="flex flex-col gap-3">
                             <button v-for="opt in continuityOptions" @click="formData.continuity = opt"
                                     :class="formData.continuity === opt ? 'bg-v4f-base/10 border-v4f-base text-v4f-neutral ring-1 ring-v4f-base' : 'bg-white border-slate-200 text-slate-500 hover:border-v4f-base'"
@@ -232,20 +232,20 @@
                 <div v-if="currentSection === 'area'" class="space-y-8 animate-fade-in">
                     <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Land Use & Spatial Planning</h2>
                     <div>
-                        <label class="block font-bold text-v4f-neutral mb-2">Total area of your farm (Ha):</label>
+                        <label class="block font-bold text-v4f-neutral mb-2">What is the total area of your farm (Ha):</label>
                         <input type="number" v-model="formData.totalSize" placeholder="Enter Ha" min="0"
                             class="w-full p-4 bg-v4f-bg border border-slate-200 rounded-xl outline-v4f-base font-medium">
                     </div>
 
                     <div v-if="formData.totalSize > 0" class="bg-v4f-bg p-6 rounded-xl border border-slate-200 space-y-4">
-                        <h3 class="font-bold text-v4f-neutral mb-4 text-xl">Current distribution (Ha):</h3>
+                        <h3 class="font-bold text-v4f-neutral mb-4 text-xl">How much of this area is allocated to:</h3>
                         <div class="flex items-center gap-4" v-for="field in filteredLandFields" :key="field.id">
                             <label class="w-48 font-medium text-slate-700">{{ field.label }}:</label>
                             <input type="number" v-model="formData[field.id]" placeholder="0" min="0"
                                 class="flex-1 p-3 bg-white border border-slate-200 rounded-lg outline-v4f-base text-right">
                         </div>
                         <div class="flex items-center gap-4 pt-4 border-t border-slate-200">
-                            <label class="w-48 font-bold text-v4f-neutral">Other land (Forests, etc.):</label>
+                            <label class="w-48 font-bold text-v4f-neutral">Other land (Forests, housing, ponds, etc.):</label>
                             <div class="flex-1 p-3 bg-slate-100 border border-transparent rounded-lg text-right font-bold text-slate-600">
                                 {{ otherSize }}
                             </div>
@@ -258,7 +258,7 @@
                     <div class="border-b-2 border-v4f-base pb-2">
                         <h2 class="text-3xl font-bold text-v4f-neutral">Resource Use & Annual Expenses</h2>
                     </div>
-                    <p class="text-slate-500 mb-6 font-medium">Please provide your estimated annual usage quantities and what you pay for them annually. Check "Don't know" if unsure.</p>
+                    <p class="text-slate-500 mb-6 font-medium">Please provide your estimated annual usage quantities and what you pay for them annually. </p>
                     
                     <div class="space-y-6">
                         <div v-for="res in resourceConfigs" :key="res.id" 
