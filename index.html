@@ -325,11 +325,11 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Land area available (Ha):</label>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">What area of your land do you want to use for agrivoltaics (Ha)?</label>
                                 <input type="number" v-model="formData.agrivoltaics.landSpace" placeholder="0.0" class="w-full p-4 bg-v4f-bg border rounded-xl">
                             </div>
                             <div>
-                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Current Land Use:</label>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">What is this land currently used for?</label>
                                 <select v-model="formData.agrivoltaics.plotLandUse" class="w-full p-4 bg-v4f-bg border rounded-xl">
                                     <option v-for="opt in plotLandUseOptions" :key="opt" :value="opt">{{ opt }}</option>
                                 </select>
@@ -337,24 +337,24 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Terrain:</label>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">How flat is this land?</label>
                                 <select v-model="formData.agrivoltaics.terrain" class="w-full p-4 bg-v4f-bg border rounded-xl">
                                     <option v-for="t in terrainOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">Slope Direction:</label>
+                                <label class="block font-bold text-v4f-neutral mb-2 text-sm">What is the predominant slope direction?</label>
                                 <select v-model="formData.agrivoltaics.slopeDirection" class="w-full p-4 bg-v4f-bg border rounded-xl">
                                     <option v-for="s in slopeDirections" :key="s" :value="s">{{ s }}</option>
                                 </select>
                             </div>
                         </div>
                         <div class="pt-4 space-y-2">
-                            <label class="block font-bold text-v4f-neutral text-sm">Current farm equipment dimensions:</label>
+                            <label class="block font-bold text-v4f-neutral text-sm">What are the maximum dimensions of your current farm equipmen used at this piece of land?</label>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <input type="number" v-model="formData.agrivoltaics.maxWidth" placeholder="Max Width (m)" class="p-3 bg-v4f-bg border rounded-lg">
                                 <input type="number" v-model="formData.agrivoltaics.maxHeight" placeholder="Max Height (m)" class="p-3 bg-v4f-bg border rounded-lg">
-                                <input type="number" v-model="formData.agrivoltaics.turningRadius" placeholder="Radius (m)" class="p-3 bg-v4f-bg border rounded-lg">
+                                <input type="number" v-model="formData.agrivoltaics.turningRadius" placeholder="Turning Radius (m)" class="p-3 bg-v4f-bg border rounded-lg">
                             </div>
                         </div>
                     </section>
