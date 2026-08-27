@@ -364,7 +364,8 @@
                 <div v-if="currentSection === 'biogas'" class="space-y-10 animate-fade-in">
                     <h2 class="text-3xl font-bold text-v4f-neutral border-b-2 border-v4f-base pb-2">Biogas Assessment</h2>
                     
-                    <section class="space-y-6">
+                    <!-- Livestock Section -->
+                    <section v-if="hasLivestock" class="space-y-6">
                         <label class="block font-bold text-v4f-neutral text-sm">What livestock do you keep?</label>
                         <div class="flex flex-wrap gap-2">
                             <button v-for="opt in livestockOptions" :key="opt" @click="toggleSelection(formData.biogas.selectedLivestock, opt, 'biogas')"
@@ -403,7 +404,7 @@
                     </section>
 
                     <!-- Biomass Tonnage Dynamic Form Mapping -->
-                    <section class="space-y-6 pt-6 border-t border-slate-100">
+                    <section v-if="hasCrops" class="space-y-6 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Crop Production & Organic Feedstocks</h3>
                         <label class="block font-bold text-v4f-neutral text-sm">Specify estimated biomass weight loaded annually (Tonnes/year):</label>
                         <div class="space-y-4 max-h-[260px] overflow-y-auto pr-2">
@@ -418,7 +419,7 @@
                     </section>
 
                     <!-- Crop Rotation Schedule Checkboxes -->
-                    <section class="space-y-4 pt-6 border-t border-slate-100">
+                    <section v-if="hasCrops" class="space-y-4 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Crop Rotation Schedule</h3>
                         <label class="block font-bold text-v4f-neutral text-sm">
                             Which of the following crops are included in your regular multi-year crop rotation schedule? (Select all that apply)
@@ -567,6 +568,16 @@
                     }
                 });
 
+                const hasLivestock = computed(() => {
+                    return formData.value.activities.includes('I raise livestock.');
+                });
+
+                const hasCrops = computed(() => {
+                    return formData.value.activities.some(act => 
+                        act.includes('I grow arable field crops') || act.includes('I grow perennial crops')
+                    );
+                });
+                
                 const filteredLandFields = computed(() => {
                     return landFields.filter(field => {
                         if (field.id === 'grassland') return formData.value.activities.includes('I raise livestock.');
