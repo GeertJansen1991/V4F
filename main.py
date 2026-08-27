@@ -20,7 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-EXCEL_PATH = "APV_DST (Clean).xlsx"
+SOLAR_EXCEL_PATH = "APV_DST (Clean).xlsx"
 BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
 
 # Global placeholders for startup caching
@@ -38,13 +38,13 @@ def initialize_system():
     global df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha
     global bbn_apv_model, bbn_ch4_model
     
-    if not os.path.exists(EXCEL_PATH) or not os.path.exists(BIOGAS_EXCEL_PATH):
+    if not os.path.exists(SOLAR_EXCEL_PATH) or not os.path.exists(BIOGAS_EXCEL_PATH):
         raise FileNotFoundError("Missing database spreadsheet dependencies in root directory.")
         
     # 1. Caches for APV (Solar)
-    df_apv_main = pd.read_excel(EXCEL_PATH, sheet_name='APV_Main')
-    df_apv_cro_yld = pd.read_excel(EXCEL_PATH, sheet_name='APV_Cro_Yld')
-    df_apv_wat_dem = pd.read_excel(EXCEL_PATH, sheet_name='APV_Wat_Dem')
+    df_apv_main = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Main')
+    df_apv_cro_yld = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Cro_Yld')
+    df_apv_wat_dem = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Wat_Dem')
     
     # 2. Caches for CH4 (Biogas)
     df_ch4_main = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_main')
@@ -93,27 +93,27 @@ def initialize_system():
             for s in [0,1,2]:
                 for r in [0,1,2]:
                     avg = (p+pe+s+r)/8.0
-                    gov_matrix.append([1.0-avg, avg*0.4, avg*0.6])
+                    gov_matrix.append([1.0-avg, avg*0.5, avg*0.5])
     cpd_gov = TabularCPD('Governance', 3, np.array(gov_matrix).T.tolist(), evidence=['APV_Pol', 'APV_Per', 'APV_Sub', 'APV_Rev'], evidence_card=[3,3,3,3])
 
     tech_matrix = []
     for g in [0,1,2]:
         for e in [0,1,2]:
             combined = (g+e)/4.0
-            tech_matrix.append([1.0-combined, combined*0.3, combined*0.7])
+            tech_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_tech = TabularCPD('Technical_Feasibility', 3, np.array(tech_matrix).T.tolist(), evidence=['Governance', 'Energy_Potential'], evidence_card=[3,3])
 
     eco_matrix = []
     for econ in [0,1,2]: 
         for rev in [0,1,2]:  
             combined = (econ+rev)/4.0
-            eco_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+            eco_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_eco_feas = TabularCPD('Economic_Feasibility', 3, np.array(eco_matrix).T.tolist(), evidence=['Economic_Potential', 'APV_Rev'], evidence_card=[3,3])
 
     soc_matrix = []
     for vis in [0,1,2,3,4]: 
         social_score = 1.0 - (vis/4.0) 
-        soc_matrix.append([1.0-social_score, social_score*0.3, social_score*0.7])
+        soc_matrix.append([1.0-social_score, social_score*0.5, social_score*0.5])
     cpd_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(soc_matrix).T.tolist(), evidence=['Visual_Impact'], evidence_card=[5])
 
     agro_matrix = []
@@ -121,13 +121,13 @@ def initialize_system():
         for wat in [0,1,2]:  
             for mac in [0,1,2]: 
                 combined = (yld+wat+mac)/6.0
-                agro_matrix.append([1.0-combined, combined*0.3, combined*0.7])
+                agro_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_agro_feas = TabularCPD('Agronomic_Feasibility', 3, np.array(agro_matrix).T.tolist(), evidence=['Crop_Yield_Impact', 'Water_Demand_Impact', 'Machinery_Compatibility'], evidence_card=[3,3,3])
 
     env_matrix = []
     for env_pot in [0,1,2]:
         combined = env_pot/2.0
-        env_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+        env_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_env_feas = TabularCPD('Environmental_Feasibility', 3, np.array(env_matrix).T.tolist(), evidence=['Environmental_Potential'], evidence_card=[3])
 
     overall_matrix = []
@@ -138,8 +138,8 @@ def initialize_system():
                     for en in [0,1,2]: 
                         for o in [0,1,2]:  
                             for su in [0,1,2]: 
-                                score = (t*2 + ec*2.5 + s*1.2 + a*1.5 + en*1.5 + o*1.5 + su*1.3) / 23.0
-                                overall_matrix.append([1.0 - score, score * 0.25, score * 0.75])
+                                score = (t*1 + ec*1 + s*1 + a*1 + en*1 + o*1 + su*1) / 14.0
+                                overall_matrix.append([1.0 - score, score * 0.5, score * 0.5])
                                 
     cpd_overall = TabularCPD('Overall_Feasibility', 3, np.array(overall_matrix).T.tolist(),
                              evidence=['Technical_Feasibility', 'Economic_Feasibility', 'Social_Feasibility', 
@@ -191,7 +191,7 @@ def initialize_system():
             for s in [0,1,2]:
                 for r in [0,1,2]:
                     avg = (p+pe+s+r)/8.0
-                    ch4_gov_matrix.append([1.0-avg, avg*0.4, avg*0.6])
+                    ch4_gov_matrix.append([1.0-avg, avg*0.5, avg*0.5])
     cpd_ch4_gov = TabularCPD('CH4_Governance', 3, np.array(ch4_gov_matrix).T.tolist(), 
                              evidence=['CH4_Pol', 'CH4_Per', 'CH4_Sub', 'CH4_Rev'], evidence_card=[3,3,3,3])
 
@@ -199,7 +199,7 @@ def initialize_system():
     for g in [0,1,2]:
         for f in [0,1,2]:
             combined = (g+f)/4.0
-            ch4_tech_matrix.append([1.0-combined, combined*0.3, combined*0.7])
+            ch4_tech_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_ch4_tech = TabularCPD('Technical_Feasibility', 3, np.array(ch4_tech_matrix).T.tolist(), 
                               evidence=['CH4_Governance', 'Feedstock_Potential'], evidence_card=[3,3])
 
@@ -207,20 +207,20 @@ def initialize_system():
     for econ in [0,1,2]:
         for rev in [0,1,2]:
             combined = (econ+rev)/4.0
-            ch4_eco_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+            ch4_eco_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_ch4_eco_feas = TabularCPD('Economic_Feasibility', 3, np.array(ch4_eco_matrix).T.tolist(), 
                                   evidence=['Economic_Potential', 'CH4_Rev'], evidence_card=[3,3])
 
     ch4_soc_matrix = []
     for odor in [0,1,2,3,4]: 
         social_score = 1.0 - (odor/4.0) 
-        ch4_soc_matrix.append([1.0-social_score, social_score*0.3, social_score*0.7])
+        ch4_soc_matrix.append([1.0-social_score, social_score*0.5, social_score*0.5])
     cpd_ch4_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(ch4_soc_matrix).T.tolist(), evidence=['CH4_Odor_Impact'], evidence_card=[5])
 
     ch4_env_matrix = []
     for env_pot in [0,1,2]:
         combined = env_pot/2.0
-        ch4_env_matrix.append([1.0-combined, combined*0.2, combined*0.8])
+        ch4_env_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_ch4_env_feas = TabularCPD('Environmental_Feasibility', 3, np.array(ch4_env_matrix).T.tolist(), 
                                   evidence=['Environmental_Potential'], evidence_card=[3])
 
@@ -228,7 +228,7 @@ def initialize_system():
     for main_c in [0,1,2]:
         for rot_c in [0,1,2]:
             combined = (main_c + rot_c)/4.0
-            ch4_agro_matrix.append([1.0-combined, combined*0.3, combined*0.7])
+            ch4_agro_matrix.append([1.0-combined, combined*0.5, combined*0.5])
     cpd_ch4_agro_feas = TabularCPD('Agronomic_Feasibility', 3, np.array(ch4_agro_matrix).T.tolist(),
                                    evidence=['Main_Crop_Potential', 'Rotation_Crops_Potential'], evidence_card=[3,3])
 
@@ -240,8 +240,8 @@ def initialize_system():
                     for en in [0,1,2]: 
                         for o in [0,1,2]:  
                             for su in [0,1,2]: 
-                                score = (t*2.0 + ec*2.0 + s*1.0 + a*2.0 + en*1.5 + o*1.0 + su*1.0) / 10.5
-                                ch4_overall_matrix.append([1.0 - score, score * 0.25, score * 0.75])
+                                score = (t*1.0 + ec*1.0 + s*1.0 + a*1.0 + en*1.0 + o*1.0 + su*1.0) / 14
+                                ch4_overall_matrix.append([1.0 - score, score * 0.5, score * 0.5])
                                 
     cpd_ch4_overall = TabularCPD('Overall_Feasibility', 3, np.array(ch4_overall_matrix).T.tolist(),
                              evidence=['Technical_Feasibility', 'Economic_Feasibility', 'Social_Feasibility', 
