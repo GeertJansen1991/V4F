@@ -128,7 +128,7 @@
                         <ol class="space-y-3 text-sm text-slate-600">
                             <li class="flex gap-2">
                                 <span class="font-bold text-v4f-neutral">1. Learn:</span> 
-<span>Complete the introductory online course <a href="https://www.futurelearn.com/courses/integrating-food-and-energy-production-on-farmland" target="_blank" rel="noopener noreferrer" class="text-v4f-base underline font-medium">here</a> (opens in new tab) to understand the core concepts.</span>
+                                <span>Complete the introductory online course <a href="https://www.futurelearn.com/courses/integrating-food-and-energy-production-on-farmland" target="_blank" rel="noopener noreferrer" class="text-v4f-base underline font-medium">here</a> (opens in new tab) to understand the core concepts.</span>
                             </li>
                             <li class="flex gap-2 bg-v4f-base/5 p-2 rounded-lg border border-v4f-base/20">
                                 <span class="font-bold text-v4f-base">2. Audit:</span> 
@@ -403,22 +403,7 @@
                         </div>
                     </section>
 
-                    <!-- Biomass Tonnage Dynamic Form Mapping -->
-                    <section v-if="hasCrops" class="space-y-6 pt-6 border-t border-slate-100">
-                        <h3 class="text-xl font-bold text-v4f-base">Crop Production & Organic Feedstocks</h3>
-                        <label class="block font-bold text-v4f-neutral text-sm">Specify estimated biomass weight loaded annually (Tonnes/year):</label>
-                        <div class="space-y-4 max-h-[260px] overflow-y-auto pr-2">
-                            <div v-for="crop in agriCropOptions" :key="crop" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                <span class="text-sm font-semibold text-v4f-neutral flex-1">{{ crop }}</span>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" min="0" placeholder="0" v-model="formData.biogas.cropTonnes[crop]" class="w-28 p-2 bg-white border rounded-lg text-right font-bold text-v4f-neutral outline-v4f-base">
-                                    <span class="text-xs text-slate-500 font-bold w-12">Tonnes/yr</span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Crop Rotation Schedule Checkboxes -->
+                    <!-- 1. Crop Rotation Schedule Checkboxes First -->
                     <section v-if="hasCrops" class="space-y-4 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Crop Rotation Schedule</h3>
                         <label class="block font-bold text-v4f-neutral text-sm">
@@ -427,14 +412,36 @@
                         
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <button v-for="crop in agriCropOptions" :key="'rot-'+crop" type="button"
-                                    @click="toggleSelection(formData.biogas.selectedCrops, crop)"
+                                    @click="toggleSelection(formData.biogas.selectedCrops, crop, 'crop')"
                                     :class="formData.biogas.selectedCrops.includes(crop) ? 'bg-v4f-base text-white border-v4f-base' : 'bg-white border-slate-200 text-v4f-neutral'"
                                     class="p-3 border-2 rounded-xl text-left text-xs font-bold transition-all hover:border-v4f-base">
                                 🔄 {{ crop }}
                             </button>
                         </div>
                     </section>
-
+                    
+                    <!-- 2. Dynamic Biomass Tonnage for Selected Crops Only -->
+                    <section v-if="hasCrops" class="space-y-6 pt-6 border-t border-slate-100">
+                        <h3 class="text-xl font-bold text-v4f-base">Crop Production & Organic Feedstocks</h3>
+                        
+                        <div v-if="formData.biogas.selectedCrops.length === 0" class="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-center">
+                            <p class="text-sm font-medium text-slate-500">Please select at least one crop from the rotation schedule above to specify biomass tonnage.</p>
+                        </div>
+                    
+                        <div v-else class="space-y-4">
+                            <label class="block font-bold text-v4f-neutral text-sm">Specify estimated biomass weight loaded annually (Tonnes/year):</label>
+                            <div class="space-y-3 max-h-[260px] overflow-y-auto pr-2">
+                                <div v-for="crop in formData.biogas.selectedCrops" :key="'tonne-'+crop" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl animate-fade-in">
+                                    <span class="text-sm font-semibold text-v4f-neutral flex-1">{{ crop }}</span>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" min="0" placeholder="0" v-model="formData.biogas.cropTonnes[crop]" class="w-28 p-2 bg-white border rounded-lg text-right font-bold text-v4f-neutral outline-v4f-base">
+                                        <span class="text-xs text-slate-500 font-bold w-12">Tonnes/yr</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    
                     <section class="space-y-6 pt-6 border-t border-slate-100">
                         <h3 class="text-xl font-bold text-v4f-base">Energy & Infrastructure</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -663,6 +670,7 @@
                     if (i > -1) {
                         list.splice(i, 1);
                         if (section === 'biogas') delete formData.value.biogas.herdDetails[val];
+                        if (section === 'crop') delete formData.value.biogas.cropTonnes[val];
                     } else {
                         list.push(val);
                         if (section === 'biogas') {
