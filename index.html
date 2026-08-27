@@ -128,7 +128,7 @@
                         <ol class="space-y-3 text-sm text-slate-600">
                             <li class="flex gap-2">
                                 <span class="font-bold text-v4f-neutral">1. Learn:</span> 
-<span>Complete the introductory online course <a href="https://www.futurelearn.com/courses/integrating-food-and-energy-production-on-farmland" target="_blank" rel="noopener noreferrer" class="text-v4f-base underline font-medium">here</a> to understand the core concepts.</span>
+<span>Complete the introductory online course <a href="https://www.futurelearn.com/courses/integrating-food-and-energy-production-on-farmland" target="_blank" rel="noopener noreferrer" class="text-v4f-base underline font-medium">here</a> (opens in new tab) to understand the core concepts.</span>
                             </li>
                             <li class="flex gap-2 bg-v4f-base/5 p-2 rounded-lg border border-v4f-base/20">
                                 <span class="font-bold text-v4f-base">2. Audit:</span> 
@@ -720,7 +720,7 @@
                         const isCropFarmer = activities.some(a => a.includes('arable') || a.includes('perennial'));
                         const machineryValid = agri.maxWidth > 0 && agri.maxHeight > 0;
 
-                        return foundationValid && cropsValid && machineryValid;
+                        return foundationValid && machineryValid;
                     }
 
                     if (section === 'biogas') {
