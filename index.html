@@ -737,7 +737,7 @@
                     if (section === 'biogas') {
                         const bio = formData.value.biogas;
                         let bovineValid = true;
-                        if (bio.selectedLivestock.includes('Bovine')) {
+                        if (hasLivestock.value && bio.selectedLivestock.includes('Bovine')) {
                             const bDetails = bio.herdDetails['Bovine'];
                             bovineValid = bDetails && bDetails.subtype && bDetails.subtype.length > 0;
                         }
