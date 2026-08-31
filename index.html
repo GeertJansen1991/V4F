@@ -888,13 +888,22 @@
                 function getScoreColor(score, element) {
                     const val = Number(score) || 0;
                     let status = 'orange';
-                    if (val < 40) status = 'red';
-                    else if (val > 70) status = 'green';
-
+                    
+                    // Updated threshold scoring
+                    if (val < 10) {
+                        status = 'red';
+                    } else if (val > 50) {
+                        status = 'green';
+                    }
+                
                     const mappings = {
                         text: { red: 'text-rose-600', orange: 'text-amber-500', green: 'text-emerald-600' },
                         bg: { red: 'bg-rose-500', orange: 'bg-amber-500', green: 'bg-emerald-500' },
-                        border: { red: 'border-rose-500 bg-rose-50/20', orange: 'border-amber-400 bg-amber-50/20', green: 'border-emerald-500 bg-emerald-50/20' }
+                        border: { 
+                            red: 'border-rose-500 bg-rose-50/20', 
+                            orange: 'border-amber-400 bg-amber-50/20', 
+                            green: 'border-emerald-500 bg-emerald-50/20' 
+                        }
                     };
                     return mappings[element][status];
                 }
