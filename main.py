@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse # Added to serve index.html
+from fastapi.responses import HTMLResponse
 from pgmpy.models import DiscreteBayesianNetwork
 from pgmpy.factors.discrete import TabularCPD
 from pgmpy.inference import VariableElimination
@@ -21,20 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INDEX_HTML_PATH = os.path.join(BASE_DIR, "index.html")
-
-@app.get("/", response_class=HTMLResponse)
-async def serve_frontend():
-    """Serves the index.html user interface at the root URL."""
-    if os.path.exists(INDEX_HTML_PATH):
-        with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read(), status_code=200)
-    return HTMLResponse(
-        content="<h3>Error: index.html not found in the root directory on the server.</h3>",
-        status_code=404
-    )
-
 SOLAR_EXCEL_PATH = "APV_DST (Clean).xlsx"
 BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
 
@@ -42,11 +28,27 @@ BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
 df_apv_main, df_apv_cro_yld, df_apv_wat_dem = None, None, None
 df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha = None, None, None, None
 
+# Independent BBN Model Graph Engines
 bbn_apv_model = None
 bbn_ch4_model = None
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INDEX_HTML_PATH = os.path.join(BASE_DIR, "index.html")
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    """Serves index.html at the root domain URL."""
+    if os.path.exists(INDEX_HTML_PATH):
+        with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    return HTMLResponse(
+        content="<h3>Error: index.html not found in the project root directory.</h3>",
+        status_code=404
+    )
+
 @app.on_event("startup")
 def initialize_system():
+    """Caches Excel matrices for both APV and Biogas and sets up graph networks."""
     global df_apv_main, df_apv_cro_yld, df_apv_wat_dem
     global df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha
     global bbn_apv_model, bbn_ch4_model
@@ -54,10 +56,12 @@ def initialize_system():
     if not os.path.exists(SOLAR_EXCEL_PATH) or not os.path.exists(BIOGAS_EXCEL_PATH):
         raise FileNotFoundError("Missing database spreadsheet dependencies in root directory.")
         
+    # 1. Caches for APV (Solar)
     df_apv_main = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Main')
     df_apv_cro_yld = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Cro_Yld')
     df_apv_wat_dem = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Wat_Dem')
     
+    # 2. Caches for CH4 (Biogas)
     df_ch4_main = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_main')
     df_ch4_the_pot = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_The_Pot')
     df_ch4_pro_pot = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_Pro_Pot')
@@ -83,7 +87,6 @@ def initialize_system():
         ('Successor_Planning', 'Overall_Feasibility')
     ])
 
-    # Assign core static distribution states for APV
     cpd_pol = TabularCPD('APV_Pol', 3, [[0.33], [0.34], [0.33]])
     cpd_per = TabularCPD('APV_Per', 3, [[0.33], [0.34], [0.33]])
     cpd_sub = TabularCPD('APV_Sub', 3, [[0.33], [0.34], [0.33]])
@@ -182,7 +185,6 @@ def initialize_system():
         ('CH4_Successor_Planning', 'Overall_Feasibility')
     ])
 
-    # Assign core static distribution states for CH4
     cpd_ch4_pol = TabularCPD('CH4_Pol', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_per = TabularCPD('CH4_Per', 3, [[0.33], [0.34], [0.33]])
     cpd_ch4_sub = TabularCPD('CH4_Sub', 3, [[0.33], [0.34], [0.33]])
@@ -226,7 +228,7 @@ def initialize_system():
     for odor in [0,1,2,3,4]: 
         social_score = 1.0 - (odor/4.0) 
         ch4_soc_matrix.append([1.0-social_score, social_score*0.5, social_score*0.5])
-    cpd_ch4_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(ch4_soc_matrix).T.tolist(), evidence=['CH4_Odor_Impact'], evidence_card=[5])
+    cpd_ch4_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(soc_matrix).T.tolist() if 'soc_matrix' in locals() else np.array(ch4_soc_matrix).T.tolist(), evidence=['CH4_Odor_Impact'], evidence_card=[5])
 
     ch4_env_matrix = []
     for env_pot in [0,1,2]:
@@ -280,7 +282,6 @@ async def generate_report(data: dict):
     swot_opportunities = []
     swot_threats = []
     
-    # Common Ownership & Succession Logic
     mapped_ownership = 2 if ownership == "Own" else (1 if "Share" in ownership or "Lease" in ownership else 0)
     mapped_successor = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
 
@@ -296,12 +297,11 @@ async def generate_report(data: dict):
         resources = data.get("resources", {})
         user_electricity_usage = float(resources.get("electricity", {}).get("value") or 50000)
 
-        # Questions from Form
         has_panels = agri.get("hasPanels", "No")
         terrain_val = agri.get("terrain", "")
         slope_dir = agri.get("slopeDirection", "")
 
-        # 1. Land Ownership SWOT
+        # 1. Ownership SWOT
         if ownership == "Own":
             swot_strengths.append("Full land ownership provides full decision-making autonomy and eliminates landlord or third-party consent requirements.")
         elif ownership:
@@ -346,7 +346,6 @@ async def generate_report(data: dict):
         if not country_row.empty:
             apv_evidence = {}
             
-            # Policy Table Lookups
             pol_raw = country_row['APV_Pol'].values[0]
             per_raw = country_row['APV_Per'].values[0]
             sub_raw = country_row['APV_Sub'].values[0]
@@ -405,7 +404,7 @@ async def generate_report(data: dict):
             roi = ((lifecycle_savings - lifecycle_cost) / lifecycle_cost) * 100 if lifecycle_cost > 0 else 0
             apv_evidence['Economic_Potential'] = 0 if roi < -25 else (1 if roi < 50 else 2)
 
-            # 12. Return on Investment SWOT
+            # 12. ROI SWOT
             if roi > 50:
                 swot_strengths.append("Strong financial viability driven by high self-consumption, favorable avoided retail tariffs, and rapid capital amortisation.")
             elif roi < 0:
@@ -440,7 +439,7 @@ async def generate_report(data: dict):
             apv_evidence['Water_Demand_Impact'] = descriptor_map.get(raw_water_impact, 1)
             apv_evidence['Machinery_Compatibility'] = 2 if machinery_height < 2.0 else (1 if machinery_height <= 2.5 else 0)
 
-            # 13. Agronomic / Crop Yield Impact SWOT
+            # 13. Crop Yield Impact SWOT
             if "Positive" in str(raw_yield_impact):
                 swot_strengths.append("Overhead microclimate sheltering reduces heat stress and soil moisture loss, improving yields for shade-tolerant crops (e.g., berries, brassicas, root vegetables).")
             elif "Negative" in str(raw_yield_impact):
@@ -478,11 +477,10 @@ async def generate_report(data: dict):
             scores_raw["social"] = int(soc_apv.values[2] * 100)
             scores_raw["environmental"] = int(env_apv.values[2] * 100)
             scores_raw["agronomic"] = int(agro_apv.values[2] * 100)
-            
+
     # ====================================================
     # 2: BIOGAS ENGINE (CH4)
     # ====================================================
-
     if focus in ["Biogas", "Both"]:
         total_biogas_potential_nm3 = 0.0
         total_feedstock_input_tonnes = 0.0 
@@ -490,7 +488,6 @@ async def generate_report(data: dict):
         selected_livestock = biogas_data.get("selectedLivestock", [])
         herd_details = biogas_data.get("herdDetails", {})
         
-        # 1. Feedstock Calculations
         manure_rows = {"Bovine": "Dairy cattle", "Swine": "Pig/Swine (fattening)", "Poultry": "Broiler poultry"}
         for animal in selected_livestock:
             details = herd_details.get(animal, {})
@@ -509,7 +506,6 @@ async def generate_report(data: dict):
                 total_biogas_potential_nm3 += animal_potential
                 total_feedstock_input_tonnes += (count * fresh_manure_per_year)
 
-        # Track crop production profiles
         max_crop_yield_nm3 = 0.0
         crop_tonnes = biogas_data.get("cropTonnes", {})
         for crop_name, tonnes in crop_tonnes.items():
@@ -535,7 +531,6 @@ async def generate_report(data: dict):
         elif total_biogas_potential_nm3 >= 1000000: ch4_evidence['Feedstock_Potential'] = 1
         else: ch4_evidence['Feedstock_Potential'] = 0
 
-        # Load Country Policies Profile Matrix
         ch4_country_row = df_ch4_main[df_ch4_main['Country'].str.lower() == country.lower()]
         if not ch4_country_row.empty:
             ch4_evidence['CH4_Pol'] = state_map.get(ch4_country_row['CH4_Pol'].values[0], 1)
@@ -543,7 +538,6 @@ async def generate_report(data: dict):
             ch4_evidence['CH4_Sub'] = state_map.get(ch4_country_row['CH4_Sub'].values[0], 1)
             ch4_evidence['CH4_Rev'] = state_map.get(ch4_country_row['CH4_Rev'].values[0], 1)
             
-            # Financial Ledger Sizing Metrics
             resources_input = data.get("resources", {})
             user_elec_volume = float(resources_input.get("electricity", {}).get("value") or 0)
             user_gas_cost = float(resources_input.get("gas", {}).get("cost") or 0)
@@ -580,7 +574,6 @@ async def generate_report(data: dict):
             elif ch4_roi >= -25.0: ch4_evidence['Economic_Potential'] = 1
             else: ch4_evidence['Economic_Potential'] = 0
 
-            # Environmental Impact
             digestate_produced_tonnes = total_feedstock_input_tonnes * 0.9
             offset_fertilizer_tonnes = min(digestate_produced_tonnes, user_fert_volume)
             
@@ -596,10 +589,8 @@ async def generate_report(data: dict):
             elif ch4_net_impact_g_kwh <= 10.0: ch4_evidence['Environmental_Potential'] = 1
             else: ch4_evidence['Environmental_Potential'] = 0
 
-        #  Social 
         ch4_evidence['CH4_Odor_Impact'] = min(4, int(total_feedstock_input_tonnes // 2000))
 
-        # Agronomic 
         if max_crop_yield_nm3 > 1500000: ch4_evidence['Main_Crop_Potential'] = 2
         elif max_crop_yield_nm3 >= 1000000: ch4_evidence['Main_Crop_Potential'] = 1
         else: ch4_evidence['Main_Crop_Potential'] = 0
@@ -622,7 +613,6 @@ async def generate_report(data: dict):
         elif avg_rotation_yield >= 200.0: ch4_evidence['Rotation_Crops_Potential'] = 1 
         else: ch4_evidence['Rotation_Crops_Potential'] = 0 
 
-        # context binding
         ch4_evidence['CH4_Land_Ownership'] = mapped_ownership
         ch4_evidence['CH4_Successor_Planning'] = mapped_successor
         if total_biogas_potential_nm3 <= 0:
@@ -649,6 +639,16 @@ async def generate_report(data: dict):
             scores_raw["social"] = int(soc_ch4.values[2] * 100)
             scores_raw["environmental"] = int(env_ch4.values[2] * 100)
             scores_raw["agronomic"] = int(agro_ch4.values[2] * 100)
+            
+            swot_strengths.append(f"Calculated Biogas Loading Asset: {round(total_biogas_potential_nm3, 1)} Nm3/yr available.")
+            if ch4_roi > 50.0:
+                swot_strengths.append(f"Highly positive Biogas return profile tracking a long-term ROI of {round(ch4_roi, 1)}%.")
+            elif ch4_roi < -25.0:
+                swot_weaknesses.append(f"Biogas lifecycle capital constraints: operational costs contract net returns ({round(ch4_roi, 1)}% ROI).")
+            if ch4_net_impact_g_kwh < -10.0:
+                swot_strengths.append(f"Substantial climate loop tracking benefits: generated organic digestate replaces up to {round(offset_fertilizer_tonnes, 1)} tonnes of synthetic mineral input compounds.")
+            elif ch4_net_impact_g_kwh > 10.0:
+                swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets.")
         else:
             for key in ["overall", "technical", "economic", "social", "environmental", "agronomic"]:
                 if key not in scores_raw:
@@ -656,24 +656,12 @@ async def generate_report(data: dict):
                         status_code=500,
                         detail=f"Inference Engine Error: Combined mode execution failed. Expected Agrivoltaics data point '{key}' was not found before cross-network merge."
                     )
-            
             scores_raw["overall"] = int((scores_raw["overall"] + (overall_ch4.values[2] * 100)) / 2)
             scores_raw["technical"] = int((scores_raw["technical"] + (tech_ch4.values[2] * 100)) / 2)
             scores_raw["economic"] = int((scores_raw["economic"] + (eco_ch4.values[2] * 100)) / 2)
             scores_raw["social"] = int((scores_raw["social"] + (soc_ch4.values[2] * 100)) / 2)
             scores_raw["environmental"] = int((scores_raw["environmental"] + (env_ch4.values[2] * 100)) / 2)
             scores_raw["agronomic"] = int((scores_raw["agronomic"] + (agro_ch4.values[2] * 100)) / 2)
-            
-        swot_strengths.append(f"Calculated Biogas Loading Asset: {round(total_biogas_potential_nm3, 1)} Nm3/yr available.")
-        if ch4_roi > 50.0:
-            swot_strengths.append(f"Highly positive Biogas return profile tracking a long-term ROI of {round(ch4_roi, 1)}%.")
-        elif ch4_roi < -25.0:
-            swot_weaknesses.append(f"Biogas lifecycle capital constraints: operational costs contract net returns ({round(ch4_roi, 1)}% ROI).")
-            
-        if ch4_net_impact_g_kwh < -10.0:
-            swot_strengths.append(f"Substantial climate loop tracking benefits: generated organic digestate replaces up to {round(offset_fertilizer_tonnes, 1)} tonnes of synthetic mineral input compounds.")
-        elif ch4_net_impact_g_kwh > 10.0:
-            swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets.")
 
     required_metrics = ["overall", "technical", "economic", "social", "environmental", "agronomic"]
     missing_metrics = [metric for metric in required_metrics if metric not in scores_raw]
@@ -684,9 +672,8 @@ async def generate_report(data: dict):
             detail=f"Inference Engine Error: Was not able to compute full probabilistic metrics. Missing components: {', '.join(missing_metrics)}"
         )
 
-    # Status indicators mappings
     def get_light(score):
-        if score < 30: return "🔴"
+        if score < 40: return "🔴"
         elif score > 70: return "🟢"
         return "🟡"
 
@@ -708,11 +695,55 @@ async def generate_report(data: dict):
     if not dynamic_recommendations:
         dynamic_recommendations.append("All structural parameters are stable. Continually audit operations against local baseline parameters.")
 
+    # ====================================================
+    # SWOT POST-PROCESSING: GUARANTEE EXACTLY 3 POINTS PER CATEGORY
+    # ====================================================
+    fallback_pool = {
+        "strengths": [
+            "Dual-use land design maintains underlying agricultural production while adding a reliable energy yield stream.",
+            "Standard electrical balance-of-system components provide straightforward integration and long-term reliability.",
+            "Preservation of core farming activities maintains eligibility for standard agricultural land classification and support.",
+            "Modular installation layout allows flexible phasing and straightforward future maintenance access."
+        ],
+        "weaknesses": [
+            "Increased initial engineering and installation complexity compared to conventional ground-mounted solar installations.",
+            "Operational management must account for machinery movement constraints around mounting structure posts.",
+            "Long-term soil compaction risk along designated machinery pathways requires structured rotational traffic management.",
+            "Seasonal maintenance schedules must be tightly coordinated with crop planting and harvesting cycles."
+        ],
+        "opportunities": [
+            "Participation in regional energy communities or direct corporate power purchase agreements (PPAs) can enhance revenue.",
+            "Integration of smart micro-irrigation or soil moisture sensor networks underneath module arrays improves resource efficiency.",
+            "Emerging agrivoltaics research and standardized agricultural module designs continue to reduce balance-of-system costs.",
+            "Potential for biodiversity enhancement along uncultivated boundary buffer strips and array corridors."
+        ],
+        "threats": [
+            "Future fluctuations in grid connection capacity and regional transmission queue timelines may delay activation.",
+            "Evolving regional dual-use regulatory definitions may require periodic compliance adjustments over the asset lifespan.",
+            "Extreme weather events (e.g., severe hail, high wind shear) require robust structural certification and comprehensive insurance coverage.",
+            "Shifting wholesale electricity market dynamics and curtailment policies may affect long-term feed-in economics."
+        ]
+    }
+
+    def finalize_swot_category(collected_items: list, category_key: str, max_count: int = 3) -> list:
+        unique_items = []
+        for item in collected_items:
+            if item not in unique_items:
+                unique_items.append(item)
+        
+        for fallback in fallback_pool[category_key]:
+            if len(unique_items) >= max_count:
+                break
+            if fallback not in unique_items:
+                unique_items.append(fallback)
+                
+        return unique_items[:max_count]
+
     swot = {
-        "strengths": swot_strengths if swot_strengths else ["No critical structural strengths identified."],
-        "weaknesses": swot_weaknesses if swot_weaknesses else ["No critical vulnerabilities observed."],
-        "opportunities": swot_opportunities if swot_opportunities else ["Standard operational expansion paths."],
-        "threats": swot_threats if swot_threats else ["Standard regulatory and market environment."]
+        "strengths": finalize_swot_category(swot_strengths, "strengths", 3),
+        "weaknesses": finalize_swot_category(swot_weaknesses, "weaknesses", 3),
+        "opportunities": finalize_swot_category(swot_opportunities, "opportunities", 3),
+        "threats": finalize_swot_category(swot_threats, "threats", 3)
     }
 
     # ====================================================
@@ -725,7 +756,6 @@ async def generate_report(data: dict):
             body { font-family: sans-serif; color: #1e293b; padding: 20px; }
             h1 { color: #74776A; border-bottom: 2px solid #95C11F; padding-bottom: 8px; font-size: 24px; }
             h2 { color: #74776A; font-size: 16px; margin-top: 20px; }
-            .badge { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
             .grid { display: flex; flex-wrap: wrap; margin-top: 15px; }
             .card { width: 46%; margin: 1%; padding: 12px; border-radius: 8px; box-sizing: border-box; }
             .strengths { background-color: #ecfdf5; border-left: 4px solid #10b981; }
@@ -813,61 +843,3 @@ async def generate_report(data: dict):
         "recommendations": dynamic_recommendations,
         "pdf": pdf_base64
     }
-2. Updating index.html (Results View)
-In index.html, replace the comment <!-- SWOT Matrix and Recommendations list template renders down here... --> inside <div v-else-if="currentView === 'results'"> with the following SWOT card block:  
-HTML
-
-HTML
-<!-- SWOT Matrix Quadrant -->
-<div class="space-y-4 pt-6">
-    <h3 class="text-2xl font-bold text-v4f-neutral">SWOT Analysis</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Strengths -->
-        <div class="p-6 bg-emerald-50/50 border border-emerald-200 rounded-2xl">
-            <h4 class="font-bold text-emerald-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Strengths
-            </h4>
-            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
-                <li v-for="item in assessmentResults.swot.strengths" :key="item">{{ item }}</li>
-            </ul>
-        </div>
-
-        <!-- Weaknesses -->
-        <div class="p-6 bg-rose-50/50 border border-rose-200 rounded-2xl">
-            <h4 class="font-bold text-rose-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full bg-rose-500"></span> Weaknesses
-            </h4>
-            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
-                <li v-for="item in assessmentResults.swot.weaknesses" :key="item">{{ item }}</li>
-            </ul>
-        </div>
-
-        <!-- Opportunities -->
-        <div class="p-6 bg-blue-50/50 border border-blue-200 rounded-2xl">
-            <h4 class="font-bold text-blue-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full bg-blue-500"></span> Opportunities
-            </h4>
-            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
-                <li v-for="item in assessmentResults.swot.opportunities" :key="item">{{ item }}</li>
-            </ul>
-        </div>
-
-        <!-- Threats -->
-        <div class="p-6 bg-amber-50/50 border border-amber-200 rounded-2xl">
-            <h4 class="font-bold text-amber-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full bg-amber-500"></span> Threats
-            </h4>
-            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
-                <li v-for="item in assessmentResults.swot.threats" :key="item">{{ item }}</li>
-            </ul>
-        </div>
-    </div>
-</div>
-
-<!-- Recommendations -->
-<div class="p-6 bg-v4f-bg border border-slate-200 rounded-2xl space-y-3">
-    <h4 class="font-bold text-v4f-neutral uppercase tracking-wider text-sm">Key Recommendations</h4>
-    <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
-        <li v-for="rec in assessmentResults.recommendations" :key="rec">{{ rec }}</li>
-    </ul>
-</div>
