@@ -673,8 +673,8 @@ async def generate_report(data: dict):
         )
 
     def get_light(score):
-        if score < 40: return "🔴"
-        elif score > 70: return "🟢"
+        if score < 10: return "🔴"
+        elif score > 60: return "🟢"
         return "🟡"
 
     status_lights = {k: get_light(v) for k, v in scores_raw.items()}
