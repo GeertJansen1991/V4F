@@ -856,7 +856,8 @@
                 async function finalizeForm() {
                     currentView.value = 'loading';
                     try {
-                        const response = await fetch('https://v4f.onrender.com/generate-report', {
+                        // Change from 'https://v4f.onrender.com/generate-report' to '/generate-report'
+                        const response = await fetch('/generate-report', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(formData.value)
