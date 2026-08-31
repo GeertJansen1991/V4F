@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse # Added to serve index.html
 from pgmpy.models import DiscreteBayesianNetwork
 from pgmpy.factors.discrete import TabularCPD
 from pgmpy.inference import VariableElimination
@@ -19,6 +20,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Route to serve the frontend directly at https://v4f.onrender.com/
+@app.get("/", response_class=FileResponse)
+async def serve_frontend():
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    return {"message": "index.html not found in root directory."}
 
 SOLAR_EXCEL_PATH = "APV_DST (Clean).xlsx"
 BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
