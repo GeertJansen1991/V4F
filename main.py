@@ -27,13 +27,11 @@ BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
 df_apv_main, df_apv_cro_yld, df_apv_wat_dem = None, None, None
 df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha = None, None, None, None
 
-# Independent BBN Model Graph Engines
 bbn_apv_model = None
 bbn_ch4_model = None
 
 @app.on_event("startup")
 def initialize_system():
-    """Caches Excel matrices for both APV and Biogas and setups both graph networks."""
     global df_apv_main, df_apv_cro_yld, df_apv_wat_dem
     global df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha
     global bbn_apv_model, bbn_ch4_model
@@ -41,12 +39,10 @@ def initialize_system():
     if not os.path.exists(SOLAR_EXCEL_PATH) or not os.path.exists(BIOGAS_EXCEL_PATH):
         raise FileNotFoundError("Missing database spreadsheet dependencies in root directory.")
         
-    # 1. Caches for APV (Solar)
     df_apv_main = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Main')
     df_apv_cro_yld = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Cro_Yld')
     df_apv_wat_dem = pd.read_excel(SOLAR_EXCEL_PATH, sheet_name='APV_Wat_Dem')
     
-    # 2. Caches for CH4 (Biogas)
     df_ch4_main = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_main')
     df_ch4_the_pot = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_The_Pot')
     df_ch4_pro_pot = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_Pro_Pot')
@@ -266,13 +262,15 @@ async def generate_report(data: dict):
     scores_raw = {}
     swot_strengths = []
     swot_weaknesses = []
+    swot_opportunities = []
+    swot_threats = []
     
-    # Common Parameters
+    # Common Ownership & Succession Logic
     mapped_ownership = 2 if ownership == "Own" else (1 if "Share" in ownership or "Lease" in ownership else 0)
     mapped_successor = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
 
     # ====================================================
-    # 1: AGRIVOLTAICS ENGINE
+    # 1: AGRIVOLTAICS ENGINE & DYNAMIC SWOT
     # ====================================================
     if focus in ["Agrivoltaics", "Both"]:
         agri = data.get("agrivoltaics", {})
@@ -283,13 +281,90 @@ async def generate_report(data: dict):
         resources = data.get("resources", {})
         user_electricity_usage = float(resources.get("electricity", {}).get("value") or 50000)
 
+        # Questions from Form
+        has_panels = agri.get("hasPanels", "No")
+        terrain_val = agri.get("terrain", "")
+        slope_dir = agri.get("slopeDirection", "")
+
+        # 1. Land Ownership SWOT
+        if ownership == "Own":
+            swot_strengths.append("Full land ownership provides full decision-making autonomy and eliminates landlord or third-party consent requirements.")
+        elif ownership:
+            swot_weaknesses.append("Tenancy, share agreements, or long-term leasehold require landlord approval and introduce tenure risk over the system's 25-year lifespan.")
+
+        # 2. Succession Plan SWOT
+        if "confirmed" in continuity.lower():
+            swot_strengths.append("A clear farm succession plan secures the multi-decade investment and long-term economic return for the next generation.")
+        elif "not sure" in continuity.lower() or "not applicable" in continuity.lower():
+            swot_weaknesses.append("Lack of long-term succession planning introduces uncertainty regarding who will manage and benefit from the multi-decade asset.")
+
+        # 3. Terrain SWOT
+        if terrain_val == "Flat":
+            swot_strengths.append("Flat topography lowers structural engineering costs and offers maximum flexibility for optimal row spacing and PV orientation.")
+        elif terrain_val == "Gently Sloping":
+            swot_opportunities.append("Minor slope allows deployment of south-facing fixed-tilt or tracking systems with basic contour engineering.")
+        elif terrain_val == "Hilly":
+            swot_weaknesses.append("Steep terrain complicates structural mounting, increases balance-of-system installation costs, and restricts machinery turning paths.")
+
+        # 4. Slope Direction SWOT
+        if slope_dir == "South-facing":
+            swot_strengths.append("South-facing orientation optimizes solar irradiation and peaks specific electricity yield per installed kWp.")
+        elif slope_dir == "North-facing":
+            swot_threats.append("North-facing incline reduces total irradiation absorption and limits PV energy generation efficiency.")
+        elif slope_dir == "East-West":
+            swot_opportunities.append("East-West orientation enables dual-axis tracking or vertical bifacial setups, spreading generation evenly across morning and afternoon peaks.")
+
+        # 5. Existing PV SWOT
+        if has_panels == "Yes":
+            swot_weaknesses.append("Grid connection capacity and existing transformer limits must be audited to prevent curtailment when expanding PV capacity.")
+        elif has_panels == "No":
+            swot_strengths.append("Greenfield site provides a blank canvas to design electrical sizing and grid interconnection specifically for agrivoltaics.")
+
+        # 6. Machinery Dimensions SWOT
+        if machinery_height > 0:
+            if machinery_height < 2.0:
+                swot_strengths.append("Standard machinery heights allow lower overhead clearance structures, reducing structural steel requirements and CAPEX.")
+            elif machinery_height > 2.0:
+                swot_weaknesses.append("High-clearance tractors or wide implements require elevated mounting structures or wider inter-row spacing, increasing structural and installation costs.")
+
         country_row = df_apv_main[df_apv_main['Country'].str.lower() == country.lower()]
         if not country_row.empty:
             apv_evidence = {}
-            apv_evidence['APV_Pol'] = state_map.get(country_row['APV_Pol'].values[0], 1)
-            apv_evidence['APV_Per'] = state_map.get(country_row['APV_Per'].values[0], 1)
-            apv_evidence['APV_Sub'] = state_map.get(country_row['APV_Sub'].values[0], 1)
-            apv_evidence['APV_Rev'] = state_map.get(country_row['APV_Rev'].values[0], 1)
+            
+            # Policy Table Lookups
+            pol_raw = country_row['APV_Pol'].values[0]
+            per_raw = country_row['APV_Per'].values[0]
+            sub_raw = country_row['APV_Sub'].values[0]
+            rev_raw = country_row['APV_Rev'].values[0]
+
+            apv_evidence['APV_Pol'] = state_map.get(pol_raw, 1)
+            apv_evidence['APV_Per'] = state_map.get(per_raw, 1)
+            apv_evidence['APV_Sub'] = state_map.get(sub_raw, 1)
+            apv_evidence['APV_Rev'] = state_map.get(rev_raw, 1)
+
+            # 7. APV_Pol SWOT
+            if pol_raw == "Positive":
+                swot_opportunities.append("Favourable national/regional policies provide active support and streamlined pathways for agrivoltaics deployment.")
+            elif pol_raw == "Negative":
+                swot_threats.append("Unclear or restrictive agrivoltaic policy frameworks may create administrative delays or regulatory hurdles.")
+
+            # 8. APV_Rev SWOT
+            if rev_raw == "Positive":
+                swot_opportunities.append("Grid export frameworks and dynamic power market access allow for attractive feed-in revenue.")
+            elif rev_raw == "Negative":
+                swot_threats.append("Exporting surplus electricity is restricted or unprofitable, capping economic return strictly to on-farm self-consumption.")
+
+            # 9. APV_Per SWOT
+            if per_raw == "Positive":
+                swot_opportunities.append("Well-defined permitting and zoning pathways enable rapid planning approval and project execution.")
+            elif per_raw == "Negative":
+                swot_threats.append("Complex spatial planning and dual-use permitting regulations may cause extended development lead times.")
+
+            # 10. APV_Sub SWOT
+            if sub_raw == "Positive":
+                swot_opportunities.append("Target agrivoltaic/renewable subsidies and CAP eco-scheme incentives can significantly reduce initial capital expenditure.")
+            elif sub_raw == "Negative":
+                swot_threats.append("Lack of dedicated agrivoltaic financial support structures requires complete private financing.")
 
             capacity_factor_raw = float(country_row['APV_Cap_Fac'].values[0])
             if capacity_factor_raw < 12.0: climate_column = "Climate 1 (<750 W/m²)"
@@ -302,12 +377,24 @@ async def generate_report(data: dict):
             specific_yield = annual_energy_production_kwh / installed_capacity_kwp if installed_capacity_kwp > 0 else 0
             apv_evidence['Energy_Potential'] = 0 if specific_yield < 1000 else (1 if specific_yield < 1400 else 2)
 
+            # 11. Specific Yield SWOT
+            if specific_yield > 1400:
+                swot_strengths.append("High solar resource availability yields substantial on-farm electricity generation and strong self-consumption savings.")
+            elif specific_yield < 1000 and specific_yield > 0:
+                swot_weaknesses.append("Lower solar irradiation lengthens payback horizons and reduces total energy offset against grid purchases.")
+
             lifecycle_cost = installed_capacity_kwp * 1000 * 1.125
             actual_kwh_offset = min(annual_energy_production_kwh * 0.80, user_electricity_usage)
             electricity_price_kwh = float(country_row['Ele_Cos'].values[0]) / 100
             lifecycle_savings = actual_kwh_offset * electricity_price_kwh * 25
             roi = ((lifecycle_savings - lifecycle_cost) / lifecycle_cost) * 100 if lifecycle_cost > 0 else 0
             apv_evidence['Economic_Potential'] = 0 if roi < -25 else (1 if roi < 50 else 2)
+
+            # 12. Return on Investment SWOT
+            if roi > 50:
+                swot_strengths.append("Strong financial viability driven by high self-consumption, favorable avoided retail tariffs, and rapid capital amortisation.")
+            elif roi < 0:
+                swot_weaknesses.append("Limited on-site electricity demand or low retail power prices extend payback times beyond standard commercial financing windows.")
 
             if available_ha <= 0 or installed_capacity_kwp <= 0:
                 apv_evidence['Energy_Potential'] = 0
@@ -320,9 +407,7 @@ async def generate_report(data: dict):
             apv_evidence['Visual_Impact'] = min(4, int(available_ha // 2))
 
             crop_clean = crop_choice.strip().lower()
-            
             crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower() == crop_clean]
-
             if crop_match.empty:
                 crop_match = df_apv_cro_yld[df_apv_cro_yld['Crop Category'].str.lower().str.contains("cereal")]
                 
@@ -340,8 +425,26 @@ async def generate_report(data: dict):
             apv_evidence['Water_Demand_Impact'] = descriptor_map.get(raw_water_impact, 1)
             apv_evidence['Machinery_Compatibility'] = 2 if machinery_height < 2.0 else (1 if machinery_height <= 2.5 else 0)
 
-            net_impact = ((annual_energy_production_kwh * 20.0) - (actual_kwh_offset * float(country_row['Gri_Car'].values[0]))) / annual_energy_production_kwh
+            # 13. Agronomic / Crop Yield Impact SWOT
+            if "Positive" in str(raw_yield_impact):
+                swot_strengths.append("Overhead microclimate sheltering reduces heat stress and soil moisture loss, improving yields for shade-tolerant crops (e.g., berries, brassicas, root vegetables).")
+            elif "Negative" in str(raw_yield_impact):
+                swot_weaknesses.append("Light interception by dense panel coverage can cause yield loss in light-demanding field crops (e.g., grain maize, cereals).")
+
+            net_impact = ((annual_energy_production_kwh * 20.0) - (actual_kwh_offset * float(country_row['Gri_Car'].values[0]))) / annual_energy_production_kwh if annual_energy_production_kwh > 0 else 0
             apv_evidence['Environmental_Potential'] = 0 if net_impact > 10.0 else (1 if -10.0 <= net_impact <= 10.0 else 2)
+
+            # 14. Environmental Potential SWOT
+            if net_impact > 10.0:
+                swot_weaknesses.append("High grid-carbon displacement potential leads to a significant net reduction in farm greenhouse gas emissions.")
+            elif net_impact < -10.0:
+                swot_strengths.append("Operating on a deeply decarbonized local grid limits the direct emission-abatement leverage of additional solar generation.")
+
+            # 15. Water Demand Impact SWOT
+            if specific_yield > 1400:
+                swot_opportunities.append("Microclimate sheltering and reduced evapotranspiration lower irrigation demand, improving drought resilience.")
+            elif specific_yield < 1000 and specific_yield > 0:
+                swot_threats.append("Inadequate module drip-lip management can concentrate rainwater runoff, causing localized soil erosion or waterlogging along panel edges.")
 
             apv_evidence['Land_Ownership'] = mapped_ownership
             apv_evidence['Successor_Planning'] = mapped_successor
@@ -361,10 +464,6 @@ async def generate_report(data: dict):
             scores_raw["environmental"] = int(env_apv.values[2] * 100)
             scores_raw["agronomic"] = int(agro_apv.values[2] * 100)
             
-            swot_strengths.append(f"High Local Solar Density sizing footprint matching {round(installed_capacity_kwp, 1)} kWp.")
-            if net_impact < -10.0:
-                swot_strengths.append("Significant solar grid greenhouse gas savings offset expected.")
-
     # ====================================================
     # 2: BIOGAS ENGINE (CH4)
     # ====================================================
@@ -572,29 +671,20 @@ async def generate_report(data: dict):
 
     # Status indicators mappings
     def get_light(score):
-        if score < 40: return "🔴"
+        if score < 30: return "🔴"
         elif score > 70: return "🟢"
         return "🟡"
 
     status_lights = {k: get_light(v) for k, v in scores_raw.items()}
 
-    swot_opportunities = []
-    swot_threats = []
     dynamic_recommendations = []
-
     if focus in ["Agrivoltaics", "Both"]:
-        swot_opportunities.append("Optimize dual-land usage yields via solar tracking system profiles.")
-        swot_threats.append("Local solar infrastructure grid curtailment risks.")
-        
         if scores_raw.get("agronomic", 100) < 40:
             dynamic_recommendations.append("Agrivoltaics Warning: Prioritize shade-tolerant cultivation crop varieties (e.g., leafy greens, root vegetables) to counteract low agronomic performance.")
         if scores_raw.get("technical", 100) < 40:
             dynamic_recommendations.append("Agrivoltaics Action: Increase PV panel clearance profiles to alleviate machinery structural height constraints.")
 
     if focus in ["Biogas", "Both"]:
-        swot_opportunities.append("Utilize processed organic digestate internally to systematically phase out synthetic mineral fertilizer expenditures.")
-        swot_threats.append("Fluctuations in regional organic feedstock supply chains.")
-        
         if scores_raw.get("environmental", 100) < 40:
             dynamic_recommendations.append("Biogas Warning: Implement advanced scrubbers or air-tight containment cells to alleviate odor or regional air baseline impacts.")
         if scores_raw.get("economic", 100) < 40:
@@ -603,34 +693,101 @@ async def generate_report(data: dict):
     if not dynamic_recommendations:
         dynamic_recommendations.append("All structural parameters are stable. Continually audit operations against local baseline parameters.")
 
-    # Compile balanced SWOT ledger
     swot = {
-        "strengths": swot_strengths,
-        "weaknesses": swot_weaknesses if swot_weaknesses else ["No structural workflows hazard metrics observed."],
-        "opportunities": swot_opportunities,
-        "threats": swot_threats
+        "strengths": swot_strengths if swot_strengths else ["No critical structural strengths identified."],
+        "weaknesses": swot_weaknesses if swot_weaknesses else ["No critical vulnerabilities observed."],
+        "opportunities": swot_opportunities if swot_opportunities else ["Standard operational expansion paths."],
+        "threats": swot_threats if swot_threats else ["Standard regulatory and market environment."]
     }
 
-    recommendations = dynamic_recommendations
-
-    #  PDF ENGINE RENDERING
-
+    # ====================================================
+    # PDF RENDERING TEMPLATE
+    # ====================================================
     html_template = """
     <html>
+    <head>
+        <style>
+            body { font-family: sans-serif; color: #1e293b; padding: 20px; }
+            h1 { color: #74776A; border-bottom: 2px solid #95C11F; padding-bottom: 8px; font-size: 24px; }
+            h2 { color: #74776A; font-size: 16px; margin-top: 20px; }
+            .badge { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            .grid { display: flex; flex-wrap: wrap; margin-top: 15px; }
+            .card { width: 46%; margin: 1%; padding: 12px; border-radius: 8px; box-sizing: border-box; }
+            .strengths { background-color: #ecfdf5; border-left: 4px solid #10b981; }
+            .weaknesses { background-color: #fef2f2; border-left: 4px solid #ef4444; }
+            .opportunities { background-color: #eff6ff; border-left: 4px solid #3b82f6; }
+            .threats { background-color: #fffbeb; border-left: 4px solid #f59e0b; }
+            .card h3 { margin-top: 0; font-size: 14px; text-transform: uppercase; }
+            ul { margin: 0; padding-left: 18px; font-size: 11px; line-height: 1.4; }
+            li { margin-bottom: 6px; }
+            .indicator-row { display: flex; margin: 15px 0; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+            .indicator-item { flex: 1; text-align: center; padding: 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; border-right: 1px solid #e2e8f0; }
+            .indicator-item:last-child { border-right: none; }
+            .indicator-item span { display: block; font-size: 18px; margin-top: 4px; }
+        </style>
+    </head>
     <body>
         <h1>Value4Farm Audit Assessment Report</h1>
-        <hr/>
-        <p>Location: {{ loc }}</p>
-        <p>Overall Feasibility Indicator Status: {{ lights.overall }}</p>
-        <p>Technical Aspect: {{ lights.technical }}</p>
-        <p>Economic Aspect: {{ lights.economic }}</p>
-        <p>Social Aspect: {{ lights.social }}</p>
-        <p>Environmental Aspect: {{ lights.environmental }}</p>
-        <p>Agronomic Aspect: {{ lights.agronomic }}</p>
+        <p><strong>Location:</strong> {{ loc }} &nbsp;|&nbsp; <strong>Focus:</strong> {{ focus }}</p>
+        
+        <h2>Feasibility Indicators</h2>
+        <div class="indicator-row">
+            <div class="indicator-item">Overall<span>{{ lights.overall }}</span></div>
+            <div class="indicator-item">Technical<span>{{ lights.technical }}</span></div>
+            <div class="indicator-item">Economic<span>{{ lights.economic }}</span></div>
+            <div class="indicator-item">Social<span>{{ lights.social }}</span></div>
+            <div class="indicator-item">Environmental<span>{{ lights.environmental }}</span></div>
+            <div class="indicator-item">Agronomic<span>{{ lights.agronomic }}</span></div>
+        </div>
+
+        <h2>Dynamic SWOT Analysis</h2>
+        <div class="grid">
+            <div class="card strengths">
+                <h3 style="color: #059669;">Strengths</h3>
+                <ul>
+                    {% for item in swot.strengths %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card weaknesses">
+                <h3 style="color: #dc2626;">Weaknesses</h3>
+                <ul>
+                    {% for item in swot.weaknesses %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card opportunities">
+                <h3 style="color: #2563eb;">Opportunities</h3>
+                <ul>
+                    {% for item in swot.opportunities %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card threats">
+                <h3 style="color: #d97706;">Threats</h3>
+                <ul>
+                    {% for item in swot.threats %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <h2>Recommendations</h2>
+        <ul>
+            {% for rec in recommendations %}
+            <li style="font-size: 11px; margin-bottom: 4px;">{{ rec }}</li>
+            {% endfor %}
+        </ul>
     </body>
     </html>
     """
-    rendered_html = Template(html_template).render(loc=country, lights=status_lights, swot=swot, recommendations=recommendations)
+    rendered_html = Template(html_template).render(
+        loc=country, focus=focus, lights=status_lights, swot=swot, recommendations=dynamic_recommendations
+    )
     pdf_bytes = HTML(string=rendered_html).write_pdf()
     pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
 
@@ -638,6 +795,64 @@ async def generate_report(data: dict):
         "scores": scores_raw,
         "lights": status_lights,
         "swot": swot,
-        "recommendations": recommendations,
+        "recommendations": dynamic_recommendations,
         "pdf": pdf_base64
     }
+2. Updating index.html (Results View)
+In index.html, replace the comment <!-- SWOT Matrix and Recommendations list template renders down here... --> inside <div v-else-if="currentView === 'results'"> with the following SWOT card block:  
+HTML
+
+HTML
+<!-- SWOT Matrix Quadrant -->
+<div class="space-y-4 pt-6">
+    <h3 class="text-2xl font-bold text-v4f-neutral">SWOT Analysis</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Strengths -->
+        <div class="p-6 bg-emerald-50/50 border border-emerald-200 rounded-2xl">
+            <h4 class="font-bold text-emerald-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Strengths
+            </h4>
+            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
+                <li v-for="item in assessmentResults.swot.strengths" :key="item">{{ item }}</li>
+            </ul>
+        </div>
+
+        <!-- Weaknesses -->
+        <div class="p-6 bg-rose-50/50 border border-rose-200 rounded-2xl">
+            <h4 class="font-bold text-rose-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-rose-500"></span> Weaknesses
+            </h4>
+            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
+                <li v-for="item in assessmentResults.swot.weaknesses" :key="item">{{ item }}</li>
+            </ul>
+        </div>
+
+        <!-- Opportunities -->
+        <div class="p-6 bg-blue-50/50 border border-blue-200 rounded-2xl">
+            <h4 class="font-bold text-blue-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-blue-500"></span> Opportunities
+            </h4>
+            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
+                <li v-for="item in assessmentResults.swot.opportunities" :key="item">{{ item }}</li>
+            </ul>
+        </div>
+
+        <!-- Threats -->
+        <div class="p-6 bg-amber-50/50 border border-amber-200 rounded-2xl">
+            <h4 class="font-bold text-amber-800 uppercase tracking-wider text-sm mb-3 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-amber-500"></span> Threats
+            </h4>
+            <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
+                <li v-for="item in assessmentResults.swot.threats" :key="item">{{ item }}</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Recommendations -->
+<div class="p-6 bg-v4f-bg border border-slate-200 rounded-2xl space-y-3">
+    <h4 class="font-bold text-v4f-neutral uppercase tracking-wider text-sm">Key Recommendations</h4>
+    <ul class="space-y-2 text-sm text-slate-700 list-disc pl-5">
+        <li v-for="rec in assessmentResults.recommendations" :key="rec">{{ rec }}</li>
+    </ul>
+</div>
