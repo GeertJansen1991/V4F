@@ -759,27 +759,82 @@ async def generate_report(data: dict):
 
     def get_light(score):
         if score < 10: return "🔴"
-        elif score > 60: return "🟢"
+        elif score > 50: return "🟢"
         return "🟡"
 
     status_lights = {k: get_light(v) for k, v in scores_raw.items()}
 
+    # ====================================================
+    # DYNAMIC RECOMMENDATIONS ENGINE 
+    # ====================================================
     dynamic_recommendations = []
-    if focus in ["Agrivoltaics", "Both"]:
-        if scores_raw.get("agronomic", 100) < 40:
-            dynamic_recommendations.append("Agrivoltaics Warning: Prioritize shade-tolerant cultivation crop varieties (e.g., leafy greens, root vegetables) to counteract low agronomic performance.")
-        if scores_raw.get("technical", 100) < 40:
-            dynamic_recommendations.append("Agrivoltaics Action: Increase PV panel clearance profiles to alleviate machinery structural height constraints.")
+    
+    overall_score = scores_raw.get("overall", 50)
+    
+    # Tier 1: Primary Framework Transition Guidance
+    if overall_score >= 10:
+        # Green (🟢) or Orange (🟡)
+        dynamic_recommendations.append(
+            "Overall Feasibility is positive/moderate: Proceed to Step 3 (Transition) of the Value4Farm Decision Support Tool to explore actionable deployment paths, detailed design configurations, and local expert support."
+        )
+    else:
+        # Red (🔴)
+        dynamic_recommendations.append(
+            "Overall Feasibility shows significant constraints: We recommend re-evaluating key structural parameters (e.g., land agreements, scale, or grid capacity) and addressing the critical aspects below before moving to deployment."
+        )
 
-    if focus in ["Biogas", "Both"]:
-        if scores_raw.get("environmental", 100) < 40:
-            dynamic_recommendations.append("Biogas Warning: Implement advanced scrubbers or air-tight containment cells to alleviate odor or regional air baseline impacts.")
-        if scores_raw.get("economic", 100) < 40:
-            dynamic_recommendations.append("Biogas Action: Evaluate localized co-digestion partnerships to increase methane operational yield densities.")
+    # Tier 2: Targeted Remediation for Specific Red (🔴) Indicators (Score < 10)
+    
+    # Agronomic Aspect
+    if scores_raw.get("agronomic", 100) < 10:
+        if focus in ["Agrivoltaics", "Both"]:
+            dynamic_recommendations.append(
+                "Agronomic Remediation: Shift toward shade-tolerant crop varieties (e.g., berries, brassicas, or root vegetables) or increase inter-row panel spacing to reduce photosynthetically active radiation (PAR) deficits."
+            )
+        if focus == "Biogas":
+            dynamic_recommendations.append(
+                "Agronomic Remediation: Introduce higher methane-yield rotation substrates (e.g., energy beet or maize silage) to optimize digester biological efficiency."
+            )
 
-    if not dynamic_recommendations:
-        dynamic_recommendations.append("All structural parameters are stable. Continually audit operations against local baseline parameters.")
+    # Technical Aspect
+    if scores_raw.get("technical", 100) < 10:
+        if focus in ["Agrivoltaics", "Both"]:
+            dynamic_recommendations.append(
+                "Technical Remediation: Increase module mounting clearance height or adjust row orientation to accommodate existing farm machinery dimensions and turning radii."
+            )
+        if focus == "Biogas":
+            dynamic_recommendations.append(
+                "Technical Remediation: Optimize manure collection routines (e.g., upgrade to automated scraping or liquid pumping) to maintain high volatile solids loading."
+            )
 
+    # Economic Aspect
+    if scores_raw.get("economic", 100) < 10:
+        if focus in ["Agrivoltaics", "Both"]:
+            dynamic_recommendations.append(
+                "Economic Remediation: Maximize on-farm self-consumption rates or investigate participation in local renewable energy sharing communities to offset volatile power markets."
+            )
+        if focus in ["Biogas", "Both"]:
+            dynamic_recommendations.append(
+                "Economic Remediation: Explore regional co-digestion partnerships with neighboring farms to share capital expenditure and secure high-energy co-substrates."
+            )
+
+    # Social / Odor / Visual Aspect
+    if scores_raw.get("social", 100) < 10:
+        if focus in ["Biogas", "Both"]:
+            dynamic_recommendations.append(
+                "Social/Odor Remediation: Incorporate gas-tight digester covers and bio-filters on substrate pits to mitigate odor impact and maintain community acceptance."
+            )
+        if focus in ["Agrivoltaics", "Both"]:
+            dynamic_recommendations.append(
+                "Social/Landscape Remediation: Implement perimeter hedgerows or natural landscape screening along roads and public viewpoints."
+            )
+
+    # Environmental Aspect
+    if scores_raw.get("environmental", 100) < 10:
+        dynamic_recommendations.append(
+            "Environmental Remediation: Optimize closed-loop nutrient management by fully substituting mineral nitrogen fertilizers with digested bio-fertilizer."
+        )
+        
     # ====================================================
     # SWOT POST-PROCESSING: GUARANTEE EXACTLY 3 POINTS PER CATEGORY
     # ====================================================
