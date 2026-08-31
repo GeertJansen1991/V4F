@@ -764,77 +764,83 @@ async def generate_report(data: dict):
 
     status_lights = {k: get_light(v) for k, v in scores_raw.items()}
 
-    # ====================================================
-    # DYNAMIC RECOMMENDATIONS ENGINE 
-    # ====================================================
+# ----------------------------------------------------
+    # 1. UPDATED TRAFFIC LIGHT THRESHOLDS
+    # ----------------------------------------------------
+    def get_light(score):
+        if score < 10:
+            return "🔴"
+        elif score > 50:
+            return "🟢"
+        return "🟡"
+
+    status_lights = {k: get_light(v) for k, v in scores_raw.items()}
+
+    # ----------------------------------------------------
+    # 2. UPDATED DYNAMIC RECOMMENDATIONS ENGINE
+    # ----------------------------------------------------
     dynamic_recommendations = []
-    
     overall_score = scores_raw.get("overall", 50)
-    
-    # Tier 1: Primary Framework Transition Guidance
+
+    # Tier 1: Primary Framework Progression
     if overall_score >= 10:
         # Green (🟢) or Orange (🟡)
         dynamic_recommendations.append(
-            "Overall Feasibility is positive/moderate: Proceed to Step 3 (Transition) of the Value4Farm Decision Support Tool to explore actionable deployment paths, detailed design configurations, and local expert support."
+            "Overall Feasibility is positive/moderate: Proceed to Step 3 (Transition) of the Value4Farm Decision Support Tool to explore actionable deployment paths, detailed engineering designs, and local expert support."
         )
     else:
         # Red (🔴)
         dynamic_recommendations.append(
-            "Overall Feasibility shows significant constraints: We recommend re-evaluating key structural parameters (e.g., land agreements, scale, or grid capacity) and addressing the critical aspects below before moving to deployment."
+            "Overall Feasibility shows critical bottlenecks (<10%): Re-evaluate fundamental parameters (such as land tenure terms, grid connectivity, or minimum scale) to improve viability before capital commitment."
         )
 
-    # Tier 2: Targeted Remediation for Specific Red (🔴) Indicators (Score < 10)
-    
-    # Agronomic Aspect
+    # Tier 2: Targeted Remediation for Specific Red (🔴) Aspects (Score < 10)
     if scores_raw.get("agronomic", 100) < 10:
         if focus in ["Agrivoltaics", "Both"]:
             dynamic_recommendations.append(
-                "Agronomic Remediation: Shift toward shade-tolerant crop varieties (e.g., berries, brassicas, or root vegetables) or increase inter-row panel spacing to reduce photosynthetically active radiation (PAR) deficits."
+                "Agronomic Remediation: Shift toward shade-tolerant crop varieties (e.g., berries, brassicas, root vegetables) or increase inter-row panel spacing to reduce photosynthetically active radiation (PAR) deficits."
             )
         if focus == "Biogas":
             dynamic_recommendations.append(
-                "Agronomic Remediation: Introduce higher methane-yield rotation substrates (e.g., energy beet or maize silage) to optimize digester biological efficiency."
+                "Agronomic Remediation: Introduce higher methane-yield rotation substrates (e.g., energy beet, maize silage) to optimize digester biological efficiency."
             )
 
-    # Technical Aspect
     if scores_raw.get("technical", 100) < 10:
         if focus in ["Agrivoltaics", "Both"]:
             dynamic_recommendations.append(
-                "Technical Remediation: Increase module mounting clearance height or adjust row orientation to accommodate existing farm machinery dimensions and turning radii."
+                "Technical Remediation: Increase module clearance height or reconfigure row spacing to eliminate interference with current farm machinery dimensions."
             )
         if focus == "Biogas":
             dynamic_recommendations.append(
-                "Technical Remediation: Optimize manure collection routines (e.g., upgrade to automated scraping or liquid pumping) to maintain high volatile solids loading."
+                "Technical Remediation: Modernize feedstock handling systems (e.g., automated slurry scraping or high-volume pumps) to ensure steady volatile solids loading."
             )
 
-    # Economic Aspect
     if scores_raw.get("economic", 100) < 10:
         if focus in ["Agrivoltaics", "Both"]:
             dynamic_recommendations.append(
-                "Economic Remediation: Maximize on-farm self-consumption rates or investigate participation in local renewable energy sharing communities to offset volatile power markets."
+                "Economic Remediation: Maximize on-site power self-consumption or explore local renewable energy communities to safeguard against wholesale grid price volatility."
             )
         if focus in ["Biogas", "Both"]:
             dynamic_recommendations.append(
-                "Economic Remediation: Explore regional co-digestion partnerships with neighboring farms to share capital expenditure and secure high-energy co-substrates."
+                "Economic Remediation: Evaluate co-digestion partnerships with neighboring farms to distribute capital costs and secure high-energy co-substrates."
             )
 
-    # Social / Odor / Visual Aspect
     if scores_raw.get("social", 100) < 10:
         if focus in ["Biogas", "Both"]:
             dynamic_recommendations.append(
-                "Social/Odor Remediation: Incorporate gas-tight digester covers and bio-filters on substrate pits to mitigate odor impact and maintain community acceptance."
+                "Social/Odor Remediation: Implement air-tight digester dome covers and bio-filtration units on storage pits to mitigate odor impact and protect neighbor relations."
             )
         if focus in ["Agrivoltaics", "Both"]:
             dynamic_recommendations.append(
-                "Social/Landscape Remediation: Implement perimeter hedgerows or natural landscape screening along roads and public viewpoints."
+                "Social/Landscape Remediation: Plant perimeter hedgerows or vegetative screens along adjacent roadways and public viewpoints."
             )
 
-    # Environmental Aspect
     if scores_raw.get("environmental", 100) < 10:
         dynamic_recommendations.append(
-            "Environmental Remediation: Optimize closed-loop nutrient management by fully substituting mineral nitrogen fertilizers with digested bio-fertilizer."
+            "Environmental Remediation: Optimize nutrient cycles by utilizing digested bio-fertilizer to fully displace synthetic mineral fertilizer purchases."
         )
-        
+
+    
     # ====================================================
     # SWOT POST-PROCESSING: GUARANTEE EXACTLY 3 POINTS PER CATEGORY
     # ====================================================
