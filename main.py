@@ -24,7 +24,7 @@ app.add_middleware(
 SOLAR_EXCEL_PATH = "APV_DST (Clean).xlsx"
 BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
 
-# Global placeholders for startup caching
+# Global placeholders for cached lookup matrices
 df_apv_main, df_apv_cro_yld, df_apv_wat_dem = None, None, None
 df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha = None, None, None, None
 
@@ -37,18 +37,18 @@ INDEX_HTML_PATH = os.path.join(BASE_DIR, "index.html")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    """Serves index.html at the root domain URL."""
+    """Serves the index.html user interface directly at the root domain URL."""
     if os.path.exists(INDEX_HTML_PATH):
         with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read(), status_code=200)
     return HTMLResponse(
-        content="<h3>Error: index.html not found in the project root directory.</h3>",
+        content="<h3>Error: index.html not found in project root directory.</h3>",
         status_code=404
     )
 
 @app.on_event("startup")
 def initialize_system():
-    """Caches Excel matrices for both APV and Biogas and sets up graph networks."""
+    """Loads spreadsheets and initializes Bayesian Belief Networks on startup."""
     global df_apv_main, df_apv_cro_yld, df_apv_wat_dem
     global df_ch4_main, df_ch4_the_pot, df_ch4_pro_pot, df_ch4_har_cha
     global bbn_apv_model, bbn_ch4_model
@@ -68,7 +68,7 @@ def initialize_system():
     df_ch4_har_cha = pd.read_excel(BIOGAS_EXCEL_PATH, sheet_name='CH4_Har_Cha')
     
     # ====================================================
-    # 1: AGRIVOLTAICS (APV)
+    # 1: AGRIVOLTAICS GRAPH MODEL
     # ====================================================
     model_apv = DiscreteBayesianNetwork([
         ('APV_Pol', 'Governance'), ('APV_Per', 'Governance'), ('APV_Sub', 'Governance'), ('APV_Rev', 'Governance'),
@@ -166,7 +166,7 @@ def initialize_system():
     bbn_apv_model = model_apv
 
     # ====================================================
-    # 2: BIOGAS GRAPH (CH4)
+    # 2: BIOGAS GRAPH MODEL (CH4)
     # ====================================================
     model_ch4 = DiscreteBayesianNetwork([
         ('CH4_Pol', 'CH4_Governance'), ('CH4_Per', 'CH4_Governance'), ('CH4_Sub', 'CH4_Governance'), ('CH4_Rev', 'CH4_Governance'),
@@ -228,7 +228,7 @@ def initialize_system():
     for odor in [0,1,2,3,4]: 
         social_score = 1.0 - (odor/4.0) 
         ch4_soc_matrix.append([1.0-social_score, social_score*0.5, social_score*0.5])
-    cpd_ch4_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(soc_matrix).T.tolist() if 'soc_matrix' in locals() else np.array(ch4_soc_matrix).T.tolist(), evidence=['CH4_Odor_Impact'], evidence_card=[5])
+    cpd_ch4_soc_feas = TabularCPD('Social_Feasibility', 3, np.array(ch4_soc_matrix).T.tolist(), evidence=['CH4_Odor_Impact'], evidence_card=[5])
 
     ch4_env_matrix = []
     for env_pot in [0,1,2]:
@@ -282,6 +282,7 @@ async def generate_report(data: dict):
     swot_opportunities = []
     swot_threats = []
     
+    # Common mappings
     mapped_ownership = 2 if ownership == "Own" else (1 if "Share" in ownership or "Lease" in ownership else 0)
     mapped_successor = 2 if "confirmed" in continuity.lower() or "formal" in continuity.lower() else 1
 
@@ -356,25 +357,25 @@ async def generate_report(data: dict):
             apv_evidence['APV_Sub'] = state_map.get(sub_raw, 1)
             apv_evidence['APV_Rev'] = state_map.get(rev_raw, 1)
 
-            # 7. APV_Pol SWOT
+            # 7. Policy SWOT
             if pol_raw == "Positive":
                 swot_opportunities.append("Favourable national/regional policies provide active support and streamlined pathways for agrivoltaics deployment.")
             elif pol_raw == "Negative":
                 swot_threats.append("Unclear or restrictive agrivoltaic policy frameworks may create administrative delays or regulatory hurdles.")
 
-            # 8. APV_Rev SWOT
+            # 8. Revenue SWOT
             if rev_raw == "Positive":
                 swot_opportunities.append("Grid export frameworks and dynamic power market access allow for attractive feed-in revenue.")
             elif rev_raw == "Negative":
                 swot_threats.append("Exporting surplus electricity is restricted or unprofitable, capping economic return strictly to on-farm self-consumption.")
 
-            # 9. APV_Per SWOT
+            # 9. Permitting SWOT
             if per_raw == "Positive":
                 swot_opportunities.append("Well-defined permitting and zoning pathways enable rapid planning approval and project execution.")
             elif per_raw == "Negative":
                 swot_threats.append("Complex spatial planning and dual-use permitting regulations may cause extended development lead times.")
 
-            # 10. APV_Sub SWOT
+            # 10. Subsidy SWOT
             if sub_raw == "Positive":
                 swot_opportunities.append("Target agrivoltaic/renewable subsidies and CAP eco-scheme incentives can significantly reduce initial capital expenditure.")
             elif sub_raw == "Negative":
@@ -394,7 +395,7 @@ async def generate_report(data: dict):
             # 11. Specific Yield SWOT
             if specific_yield > 1400:
                 swot_strengths.append("High solar resource availability yields substantial on-farm electricity generation and strong self-consumption savings.")
-            elif specific_yield < 1000 and specific_yield > 0:
+            elif 0 < specific_yield < 1000:
                 swot_weaknesses.append("Lower solar irradiation lengthens payback horizons and reduces total energy offset against grid purchases.")
 
             lifecycle_cost = installed_capacity_kwp * 1000 * 1.125
@@ -457,7 +458,7 @@ async def generate_report(data: dict):
             # 15. Water Demand Impact SWOT
             if specific_yield > 1400:
                 swot_opportunities.append("Microclimate sheltering and reduced evapotranspiration lower irrigation demand, improving drought resilience.")
-            elif specific_yield < 1000 and specific_yield > 0:
+            elif 0 < specific_yield < 1000:
                 swot_threats.append("Inadequate module drip-lip management can concentrate rainwater runoff, causing localized soil erosion or waterlogging along panel edges.")
 
             apv_evidence['Land_Ownership'] = mapped_ownership
@@ -479,7 +480,7 @@ async def generate_report(data: dict):
             scores_raw["agronomic"] = int(agro_apv.values[2] * 100)
 
     # ====================================================
-    # 2: BIOGAS ENGINE (CH4)
+    # 2: BIOGAS ENGINE & DYNAMIC SWOT
     # ====================================================
     if focus in ["Biogas", "Both"]:
         total_biogas_potential_nm3 = 0.0
@@ -487,7 +488,9 @@ async def generate_report(data: dict):
         biogas_data = data.get("biogas", {})
         selected_livestock = biogas_data.get("selectedLivestock", [])
         herd_details = biogas_data.get("herdDetails", {})
+        manure_systems = biogas_data.get("manureSystems", {})
         
+        # 1. Feedstock Calculations
         manure_rows = {"Bovine": "Dairy cattle", "Swine": "Pig/Swine (fattening)", "Poultry": "Broiler poultry"}
         for animal in selected_livestock:
             details = herd_details.get(animal, {})
@@ -523,6 +526,45 @@ async def generate_report(data: dict):
                     if crop_yield_nm3 > max_crop_yield_nm3:
                         max_crop_yield_nm3 = crop_yield_nm3
 
+        # ----------------------------------------------------
+        # DYNAMIC BIOGAS SWOT EVALUATION
+        # ----------------------------------------------------
+
+        # A. Feedstock Availability SWOT
+        if total_biogas_potential_nm3 > 1500000:
+            swot_strengths.append("High-volume on-farm feedstock (manure and crop biomass) ensures continuous, stable digester loading and high energy yields.")
+        elif 0 < total_biogas_potential_nm3 < 750000:
+            swot_weaknesses.append("Limited on-farm substrate volumes may lead to suboptimal digester capacity utilization and higher unit operating costs.")
+
+        # B. Manure Collection Method SWOT
+        has_liquid_system = any("Liquid" in str(sys) or "slurry" in str(sys).lower() or "Vacuum" in str(sys) for sys in manure_systems.values())
+        has_solid_system = any("Solid" in str(sys) or "Deep Litter" in str(sys) or "bedding" in str(sys).lower() for sys in manure_systems.values())
+        
+        if has_liquid_system:
+            swot_strengths.append("Automated slurry/liquid systems allow direct, frequent loading with minimal labor and preserve volatile solids for maximum methane yield.")
+        if has_solid_system:
+            swot_weaknesses.append("High straw bedding content requires mechanical pre-treatment (shredding/maceration) and increases solid-handling operational effort.")
+
+        # C. Gas Grid Infrastructure SWOT
+        gas_grid_status = biogas_data.get("infrastructure", {}).get("gasGrid", "")
+        if gas_grid_status == "Yes":
+            swot_opportunities.append("Proximity to the gas transmission or distribution grid creates potential for biomethane upgrading and direct pipeline injection.")
+        elif gas_grid_status == "No":
+            swot_threats.append("Distance from the gas grid limits energy recovery to on-site CHP electricity/heat or requires costly off-grid transport solutions.")
+
+        # D. Ownership & Succession for Biogas
+        if focus == "Biogas":
+            if ownership == "Own":
+                swot_strengths.append("Full freehold land ownership provides security for the permanent civil works, concrete storage, and deep utility lines required by a 15-year installation.")
+            elif ownership:
+                swot_weaknesses.append("Leasehold agreements may restrict heavy civil infrastructure and introduce contractual risk over the 15-year plant lifetime.")
+
+            if "confirmed" in continuity.lower():
+                swot_strengths.append("Defined multi-generation farm succession ensures continued operational expertise and management of capital-intensive plant equipment.")
+            elif "not sure" in continuity.lower() or "not applicable" in continuity.lower():
+                swot_weaknesses.append("Uncertain operational succession creates long-term risk for an asset requiring continuous monitoring and mechanical maintenance.")
+
+        # Load Country Policies Profile Matrix
         ch4_evidence = {}
         ch4_roi = 0.0
         ch4_net_impact_g_kwh = 0.0
@@ -533,11 +575,38 @@ async def generate_report(data: dict):
 
         ch4_country_row = df_ch4_main[df_ch4_main['Country'].str.lower() == country.lower()]
         if not ch4_country_row.empty:
-            ch4_evidence['CH4_Pol'] = state_map.get(ch4_country_row['CH4_Pol'].values[0], 1)
-            ch4_evidence['CH4_Per'] = state_map.get(ch4_country_row['CH4_Per'].values[0], 1)
-            ch4_evidence['CH4_Sub'] = state_map.get(ch4_country_row['CH4_Sub'].values[0], 1)
-            ch4_evidence['CH4_Rev'] = state_map.get(ch4_country_row['CH4_Rev'].values[0], 1)
+            ch4_pol_raw = ch4_country_row['CH4_Pol'].values[0]
+            ch4_per_raw = ch4_country_row['CH4_Per'].values[0]
+            ch4_sub_raw = ch4_country_row['CH4_Sub'].values[0]
+            ch4_rev_raw = ch4_country_row['CH4_Rev'].values[0]
+
+            ch4_evidence['CH4_Pol'] = state_map.get(ch4_pol_raw, 1)
+            ch4_evidence['CH4_Per'] = state_map.get(ch4_per_raw, 1)
+            ch4_evidence['CH4_Sub'] = state_map.get(ch4_sub_raw, 1)
+            ch4_evidence['CH4_Rev'] = state_map.get(ch4_rev_raw, 1)
+
+            # E. Biogas Policy & Market Frameworks SWOT
+            if ch4_pol_raw == "Positive":
+                swot_opportunities.append("Favourable national policy and renewable gas targets streamline the regulatory roadmap for agricultural anaerobic digestion.")
+            elif ch4_pol_raw == "Negative":
+                swot_threats.append("Inconsistent or restrictive biogas regulations may increase administrative overhead and project risk.")
+
+            if ch4_rev_raw == "Positive":
+                swot_opportunities.append("Remuneration frameworks (feed-in tariffs, biomethane certificates, or power export) provide predictable long-term revenue.")
+            elif ch4_rev_raw == "Negative":
+                swot_threats.append("Low export compensation and lack of green gas certificate mechanisms make project viability strictly dependent on self-consumption savings.")
+
+            if ch4_per_raw == "Positive":
+                swot_opportunities.append("Clear environmental and spatial permitting standards allow for timely plant construction and commissioning.")
+            elif ch4_per_raw == "Negative":
+                swot_threats.append("Lengthy environmental impact assessments, emissions permitting, and zoning hurdles may delay installation.")
+
+            if ch4_sub_raw == "Positive":
+                swot_opportunities.append("Targeted capital investment grants and decarbonization subsidies lower initial digester and CHP capital expenditure.")
+            elif ch4_sub_raw == "Negative":
+                swot_threats.append("Limited subsidy availability requires full upfront capital financing and increases payback sensitivity.")
             
+            # Financial Ledger Sizing
             resources_input = data.get("resources", {})
             user_elec_volume = float(resources_input.get("electricity", {}).get("value") or 0)
             user_gas_cost = float(resources_input.get("gas", {}).get("cost") or 0)
@@ -574,6 +643,13 @@ async def generate_report(data: dict):
             elif ch4_roi >= -25.0: ch4_evidence['Economic_Potential'] = 1
             else: ch4_evidence['Economic_Potential'] = 0
 
+            # F. Return on Investment (ROI) SWOT
+            if ch4_roi > 50.0:
+                swot_strengths.append("Substantial combined savings across electricity, heating fuel, and mineral fertilizers deliver an attractive payback profile.")
+            elif ch4_roi < 0.0:
+                swot_weaknesses.append("High capital expenditure relative to energy offsets results in a long financial payback period under standard tariff baselines.")
+
+            # Environmental Calculations
             digestate_produced_tonnes = total_feedstock_input_tonnes * 0.9
             offset_fertilizer_tonnes = min(digestate_produced_tonnes, user_fert_volume)
             
@@ -589,8 +665,21 @@ async def generate_report(data: dict):
             elif ch4_net_impact_g_kwh <= 10.0: ch4_evidence['Environmental_Potential'] = 1
             else: ch4_evidence['Environmental_Potential'] = 0
 
-        ch4_evidence['CH4_Odor_Impact'] = min(4, int(total_feedstock_input_tonnes // 2000))
+            # G. Net GHG Impact SWOT
+            if ch4_net_impact_g_kwh < -10.0:
+                swot_strengths.append("Capturing raw manure methane emissions and displacing fossil fuel and synthetic fertilizer produces a strong net-negative carbon footprint.")
+            elif ch4_net_impact_g_kwh > 10.0:
+                swot_weaknesses.append("Intensive processing energy or high-emission feedstocks limit the net greenhouse gas abatement potential.")
 
+        # Social / Odor Impact SWOT
+        odor_score = min(4, int(total_feedstock_input_tonnes // 2000))
+        ch4_evidence['CH4_Odor_Impact'] = odor_score
+        if odor_score >= 3:
+            swot_threats.append("Large substrate handling volumes and open digestate basins near residential zones risk odor complaints and local community pushback.")
+        else:
+            swot_opportunities.append("Enclosed storage, sealed digesters, and digested slurry reduce raw manure odor, improving community relations.")
+
+        # Agronomic Calculations
         if max_crop_yield_nm3 > 1500000: ch4_evidence['Main_Crop_Potential'] = 2
         elif max_crop_yield_nm3 >= 1000000: ch4_evidence['Main_Crop_Potential'] = 1
         else: ch4_evidence['Main_Crop_Potential'] = 0
@@ -612,6 +701,12 @@ async def generate_report(data: dict):
         if avg_rotation_yield > 400.0: ch4_evidence['Rotation_Crops_Potential'] = 2 
         elif avg_rotation_yield >= 200.0: ch4_evidence['Rotation_Crops_Potential'] = 1 
         else: ch4_evidence['Rotation_Crops_Potential'] = 0 
+
+        # H. Crops & Residue Potential SWOT
+        if avg_rotation_yield > 400.0:
+            swot_strengths.append("High-energy substrate rotation (e.g., maize, beet pulp) boosts methane production without requiring proportional digester volume increases.")
+        elif 0 < avg_rotation_yield < 200.0:
+            swot_weaknesses.append("Low-yielding fibrous residues provide lower specific methane output, requiring larger retention times and digester sizing.")
 
         ch4_evidence['CH4_Land_Ownership'] = mapped_ownership
         ch4_evidence['CH4_Successor_Planning'] = mapped_successor
@@ -639,16 +734,6 @@ async def generate_report(data: dict):
             scores_raw["social"] = int(soc_ch4.values[2] * 100)
             scores_raw["environmental"] = int(env_ch4.values[2] * 100)
             scores_raw["agronomic"] = int(agro_ch4.values[2] * 100)
-            
-            swot_strengths.append(f"Calculated Biogas Loading Asset: {round(total_biogas_potential_nm3, 1)} Nm3/yr available.")
-            if ch4_roi > 50.0:
-                swot_strengths.append(f"Highly positive Biogas return profile tracking a long-term ROI of {round(ch4_roi, 1)}%.")
-            elif ch4_roi < -25.0:
-                swot_weaknesses.append(f"Biogas lifecycle capital constraints: operational costs contract net returns ({round(ch4_roi, 1)}% ROI).")
-            if ch4_net_impact_g_kwh < -10.0:
-                swot_strengths.append(f"Substantial climate loop tracking benefits: generated organic digestate replaces up to {round(offset_fertilizer_tonnes, 1)} tonnes of synthetic mineral input compounds.")
-            elif ch4_net_impact_g_kwh > 10.0:
-                swot_weaknesses.append("Biogas footprint constraint: intensive localized operations yield low net greenhouse gas offsets.")
         else:
             for key in ["overall", "technical", "economic", "social", "environmental", "agronomic"]:
                 if key not in scores_raw:
@@ -669,7 +754,7 @@ async def generate_report(data: dict):
     if missing_metrics:
         raise HTTPException(
             status_code=500, 
-            detail=f"Inference Engine Error: Was not able to compute full probabilistic metrics. Missing components: {', '.join(missing_metrics)}"
+            detail=f"Inference Engine Error: Missing probabilistic components: {', '.join(missing_metrics)}"
         )
 
     def get_light(score):
@@ -700,28 +785,28 @@ async def generate_report(data: dict):
     # ====================================================
     fallback_pool = {
         "strengths": [
-            "Dual-use land design maintains underlying agricultural production while adding a reliable energy yield stream.",
-            "Standard electrical balance-of-system components provide straightforward integration and long-term reliability.",
+            "Dual-use land and bio-resource design maintains underlying agricultural production while adding a reliable energy yield stream.",
+            "Standard electrical balance-of-system and CHP components provide straightforward integration and long-term reliability.",
             "Preservation of core farming activities maintains eligibility for standard agricultural land classification and support.",
             "Modular installation layout allows flexible phasing and straightforward future maintenance access."
         ],
         "weaknesses": [
-            "Increased initial engineering and installation complexity compared to conventional ground-mounted solar installations.",
-            "Operational management must account for machinery movement constraints around mounting structure posts.",
-            "Long-term soil compaction risk along designated machinery pathways requires structured rotational traffic management.",
+            "Increased initial engineering and installation complexity compared to single-purpose installations.",
+            "Operational management must account for machinery movement constraints and biological digester balance.",
+            "Long-term soil compaction and substrate storage maintenance require structured operational workflows.",
             "Seasonal maintenance schedules must be tightly coordinated with crop planting and harvesting cycles."
         ],
         "opportunities": [
             "Participation in regional energy communities or direct corporate power purchase agreements (PPAs) can enhance revenue.",
-            "Integration of smart micro-irrigation or soil moisture sensor networks underneath module arrays improves resource efficiency.",
-            "Emerging agrivoltaics research and standardized agricultural module designs continue to reduce balance-of-system costs.",
-            "Potential for biodiversity enhancement along uncultivated boundary buffer strips and array corridors."
+            "Utilization of processed organic digestate internally systematically phases out synthetic mineral fertilizer expenditures.",
+            "Emerging bio-economy research and standardized agricultural module designs continue to reduce balance-of-system costs.",
+            "Potential for biodiversity enhancement and emissions reduction along uncultivated boundary buffer strips."
         ],
         "threats": [
             "Future fluctuations in grid connection capacity and regional transmission queue timelines may delay activation.",
-            "Evolving regional dual-use regulatory definitions may require periodic compliance adjustments over the asset lifespan.",
-            "Extreme weather events (e.g., severe hail, high wind shear) require robust structural certification and comprehensive insurance coverage.",
-            "Shifting wholesale electricity market dynamics and curtailment policies may affect long-term feed-in economics."
+            "Evolving regional dual-use and emissions regulations may require periodic compliance adjustments over the asset lifespan.",
+            "Extreme weather events and supply chain variations require robust operational planning and insurance coverage.",
+            "Shifting wholesale electricity/gas market dynamics and curtailment policies may affect long-term feed-in economics."
         ]
     }
 
@@ -756,6 +841,7 @@ async def generate_report(data: dict):
             body { font-family: sans-serif; color: #1e293b; padding: 20px; }
             h1 { color: #74776A; border-bottom: 2px solid #95C11F; padding-bottom: 8px; font-size: 24px; }
             h2 { color: #74776A; font-size: 16px; margin-top: 20px; }
+            .badge { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
             .grid { display: flex; flex-wrap: wrap; margin-top: 15px; }
             .card { width: 46%; margin: 1%; padding: 12px; border-radius: 8px; box-sizing: border-box; }
             .strengths { background-color: #ecfdf5; border-left: 4px solid #10b981; }
