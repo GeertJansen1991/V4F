@@ -21,12 +21,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Route to serve the frontend directly at https://v4f.onrender.com/
-@app.get("/", response_class=FileResponse)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INDEX_HTML_PATH = os.path.join(BASE_DIR, "index.html")
+
+@app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return {"message": "index.html not found in root directory."}
+    """Serves the index.html user interface at the root URL."""
+    if os.path.exists(INDEX_HTML_PATH):
+        with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    return HTMLResponse(
+        content="<h3>Error: index.html not found in the root directory on the server.</h3>",
+        status_code=404
+    )
 
 SOLAR_EXCEL_PATH = "APV_DST (Clean).xlsx"
 BIOGAS_EXCEL_PATH = "CH4_DST (Clean).xlsx"
